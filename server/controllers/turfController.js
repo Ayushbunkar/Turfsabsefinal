@@ -1,0 +1,204 @@
+import Turf from "../models/Turf.js";
+import fs from 'fs';
+import path from 'path';
+import cloudinary from '../config/cloudinary.js';
+
+// 🟢 CREATE TURF
+export const createTurf = async (req, res) => {
+  try {
+    // Debug: log incoming request details to trace issues
+    console.log('--- createTurf called ---');
+    console.log('URL:', req.originalUrl);
+    console.log('Method:', req.method);
+    console.log('Authorization header present?', !!req.headers.authorization);
+    console.log('x-access-token header present?', !!req.headers['x-access-token']);
+    console.log('Cookie token present?', !!req.cookies?.token);
+    console.log('req.user:', req.user ? { id: req.user._id, role: req.user.role, email: req.user.email } : null);
+    console.log('req.file:', req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size } : null);
+    console.log('req.body keys:', Object.keys(req.body || {}));
+
+    const { name, location, description, pricePerHour, availableSlots } = req.body;
+
+    // Basic validation
+    if (!name || !location || !pricePerHour) {
+      console.warn('createTurf: missing required fields', { name, location, pricePerHour });
+      return res.status(400).json({ message: 'Missing required fields: name, location, pricePerHour' });
+    }
+
+    // Handle uploaded file from multer (attempt Cloudinary upload if configured)
+    let images = [];
+    if (req.file) {
+      // Defensive: check multer actually saved the file
+      if (!req.file.filename) {
+        console.error('❌ Multer did not save file correctly. req.file:', req.file);
+        // Do not push undefined image
+      } else {
+        let imageUrl = null;
+        if (cloudinary) {
+          if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+            console.error('❌ Cloudinary config missing: Must supply cloud_name, api_key, and api_secret in .env');
+            imageUrl = `/uploads/${req.file.filename}`;
+          } else {
+            try {
+              const uploadRes = await cloudinary.uploader.upload(req.file.path, { folder: 'turfs' });
+              if (uploadRes && uploadRes.secure_url) {
+                imageUrl = uploadRes.secure_url;
+                console.log('✅ Cloudinary upload success:', uploadRes.secure_url);
+              } else {
+                imageUrl = `/uploads/${req.file.filename}`;
+                console.warn('⚠️ Cloudinary upload returned no secure_url, using local file');
+              }
+            } catch (e) {
+              console.error('❌ Cloudinary upload failed:', e);
+              imageUrl = `/uploads/${req.file.filename}`;
+            } finally {
+              // remove local file if exists
+              try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+            }
+          }
+        } else {
+          // Cloudinary not available; fallback to local file
+          imageUrl = `/uploads/${req.file.filename}`;
+          console.warn('⚠️ Cloudinary not configured, using local file');
+        }
+        // Only push if imageUrl is valid and not undefined/null
+        if (imageUrl && imageUrl !== '/uploads/undefined' && imageUrl !== 'undefined') {
+          images.push(imageUrl);
+        } else {
+          console.error('❌ Image upload failed, imageUrl is invalid:', imageUrl);
+        }
+      }
+    } else if (req.body.images) {
+      // If images provided in body as JSON or comma-separated
+      try {
+        const parsed = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
+        if (Array.isArray(parsed)) images = parsed;
+      } catch (e) {
+        // fallback: comma-separated string
+        if (typeof req.body.images === 'string') {
+          images = req.body.images.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+    }
+
+    // Auto-approve turfs created by admin or superadmin so they're visible immediately
+    const autoApprove = req.user && (req.user.role === 'admin' || req.user.role === 'superadmin');
+
+    const turf = await Turf.create({
+      name,
+      location,
+      description,
+      pricePerHour,
+      availableSlots,
+      images,
+      admin: req.user?._id,
+      isApproved: autoApprove,
+    });
+
+  console.log('createTurf: turf created with id', turf._id);
+  // Build an absolute imageUrl for immediate client use.
+  const baseUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4500}`;
+  let imageUrl = null;
+  if (turf.images && turf.images.length) {
+    imageUrl = turf.images[0];
+    // if stored as relative path like /uploads/..., prefix the server base URL
+    if (!imageUrl.startsWith('http')) {
+      imageUrl = `${baseUrl}${imageUrl}`;
+    }
+  }
+  res.status(201).json({ message: "Turf added successfully!", turf, imageUrl });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 🔵 GET ALL TURFS (Public)
+export const getAllTurfs = async (req, res) => {
+  try {
+    // If ?all=true is provided (dev only), return all turfs regardless of approval
+    const returnAll = req.query?.all === 'true';
+    const filter = returnAll ? {} : { isApproved: true };
+  const turfs = await Turf.find(filter).populate("admin", "name email");
+  res.json(turfs);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 🟣 GET MY TURFS (Admin Only)
+export const getMyTurfs = async (req, res) => {
+  try {
+    const turfs = await Turf.find({ admin: req.user._id });
+    res.json(turfs);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// � GET TURF BY ID (Public)
+export const getTurfById = async (req, res) => {
+  try {
+    const turf = await Turf.findById(req.params.id).populate('admin', 'name email');
+    if (!turf) return res.status(404).json({ message: 'Turf not found' });
+    res.json(turf);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// �🟠 UPDATE TURF (Admin)
+export const updateTurf = async (req, res) => {
+  try {
+    const turf = await Turf.findById(req.params.id);
+    if (!turf) return res.status(404).json({ message: "Turf not found" });
+
+    if (turf.admin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized to edit this turf" });
+    }
+
+    const updatedTurf = await Turf.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+
+    res.json({ message: "Turf updated", turf: updatedTurf });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 🔴 DELETE TURF
+export const deleteTurf = async (req, res) => {
+  try {
+    const turf = await Turf.findById(req.params.id);
+    if (!turf) return res.status(404).json({ message: "Turf not found" });
+
+    if (turf.admin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized to delete this turf" });
+    }
+
+    await turf.deleteOne();
+    res.json({ message: "Turf deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 🟡 SUPERADMIN - APPROVE TURF
+export const approveTurf = async (req, res) => {
+  try {
+    const turf = await Turf.findById(req.params.id);
+    if (!turf) return res.status(404).json({ message: "Turf not found" });
+
+    turf.isApproved = true;
+    await turf.save();
+
+    res.json({ message: "Turf approved successfully", turf });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }await sendEmail({
+  to: turf.admin?.email,
+  subject: "Turf Approved",
+  text: `Hi ${turf?.admin?.name || 'Admin'}, your turf has been approved by SuperAdmin.`,
+});
+
+};
