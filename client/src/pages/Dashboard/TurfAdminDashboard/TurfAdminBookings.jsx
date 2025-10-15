@@ -10,44 +10,28 @@ import {
 } from "lucide-react";
 
 // === MOCK DATA & SERVICES ===
-const mockTurfs = [
-  { _id: "t1", name: "The Green Arena" },
-  { _id: "t2", name: "City Futsal Court" },
-  { _id: "t3", name: "Victory Stadium" }
-];
-
-const mockBookings = [
-  { _id: "b1", user: { name: "Alice Smith", email: "alice@example.com" }, turf: mockTurfs[0], date: "2025-10-20", timeSlot: "10:00 - 11:00", duration: 1, amount: 1500, status: "pending" },
-  { _id: "b2", user: { name: "Bob Johnson", email: "bob@example.com" }, turf: mockTurfs[1], date: "2025-10-21", timeSlot: "18:00 - 20:00", duration: 2, amount: 3000, status: "confirmed" },
-  { _id: "b3", user: { name: "Charlie Day", email: "charlie@example.com" }, turf: mockTurfs[0], date: "2025-10-15", timeSlot: "14:00 - 15:30", duration: 1.5, amount: 2250, status: "completed" },
-  { _id: "b4", user: { name: "Diana Prince", email: "diana@example.com" }, turf: mockTurfs[2], date: "2025-10-25", timeSlot: "09:00 - 10:00", duration: 1, amount: 1800, status: "cancelled" },
-  { _id: "b5", user: { name: "Eve Adams", email: "eve@example.com" }, turf: mockTurfs[1], date: "2025-10-26", timeSlot: "16:00 - 17:00", duration: 1, amount: 1600, status: "pending" },
-  { _id: "b6", user: { name: "Frank Miller", email: "frank@example.com" }, turf: mockTurfs[2], date: "2025-10-27", timeSlot: "20:00 - 21:00", duration: 1, amount: 2000, status: "confirmed" }
-];
-
-const fetchTurfsService = () => new Promise(resolve => setTimeout(() => resolve(mockTurfs), 100));
-const fetchBookingsService = params => new Promise(resolve => setTimeout(() => {
-  let filtered = mockBookings;
-  const searchParams = new URLSearchParams(params);
-  const status = searchParams.get("status");
-  const turfId = searchParams.get("turfId");
-  const search = searchParams.get("search")?.toLowerCase();
-
-  if (status && status !== "all") filtered = filtered.filter(b => b.status === status);
-  if (turfId && turfId !== "all") filtered = filtered.filter(b => b.turf._id === turfId);
-  if (search) filtered = filtered.filter(b =>
-    b.user.name.toLowerCase().includes(search) ||
-    b.user.email.toLowerCase().includes(search)
-  );
-  resolve(filtered);
-}, 500));
-// Use real API if available (api client configured), otherwise fall back to mock
 import api from '../../../config/Api';
-const updateBookingStatus = (id, payload) => {
-  if (api) return api.put(`/api/bookings/${id}/status`, payload).then(r => r.data);
-  return new Promise(resolve => setTimeout(() => resolve({ id, status: payload.status }), 200));
+
+// Real API services
+const fetchTurfsService = async () => {
+  const res = await api.get('/api/turfs?all=true');
+  return res.data;
 };
-const exportBookingsService = params => new Promise(resolve => setTimeout(() => resolve("id,user,turf,date,status\nb1,Alice,Green Arena,2025-10-20,pending"), 200));
+
+const fetchBookingsService = async (params) => {
+  const res = await api.get(`/api/bookings?${params}`);
+  return res.data;
+};
+
+const updateBookingStatus = async (id, payload) => {
+  const res = await api.put(`/api/bookings/${id}/status`, payload);
+  return res.data;
+};
+
+const exportBookingsService = async (params) => {
+  const res = await api.get(`/api/bookings/export?${params}`);
+  return res.data;
+};
 
 // === HELPER FUNCTIONS ===
 const getStatusClasses = status => {
@@ -284,7 +268,7 @@ export default function TurfAdminBookings() {
 
   // ===== RENDER =====
   // compute TTL from env (client build-time) fallback to 900s
-  const pendingTTL = Number(import.meta.env.VITE_PENDING_BOOKING_TTL || process.env.REACT_APP_PENDING_BOOKING_TTL) || 900;
+  const pendingTTL = Number(import.meta.env.VITE_PENDING_BOOKING_TTL) || 900;
 
   return (
     <div className={`p-6 ${themeClass}`}>

@@ -22,8 +22,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Static uploads
-app.use('/uploads', express.static(path.join(process.cwd(), 'server', 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);

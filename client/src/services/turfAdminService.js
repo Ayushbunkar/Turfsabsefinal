@@ -1,6 +1,9 @@
 import api from "../config/Api";
 
-export const fetchTurfs = async () => (await api.get("/api/turfs")).data;
+export const fetchTurfs = async (showAll = false) => {
+  const url = `/api/turfs${showAll ? '?all=true' : ''}`;
+  return (await api.get(url)).data;
+};
 
 export const saveTurf = async (turf, id) => {
   if (id) return (await api.put(`/api/turfs/${id}`, turf)).data;

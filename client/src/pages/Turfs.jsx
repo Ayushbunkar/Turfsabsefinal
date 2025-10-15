@@ -13,13 +13,12 @@ const Turfs = () => {
 
   useEffect(() => {
     let mounted = true;
-    const fetchTurfs = async () => {
+    const loadTurfs = async () => {
       try {
         setLoading(true);
-        const url = `/api/turfs${showAll ? '?all=true' : ''}`;
-        const response = await api.get(url);
+        const data = await import('../services/turfAdminService').then(mod => mod.fetchTurfs(showAll));
         if (!mounted) return;
-        setTurfs(response.data || []);
+        setTurfs(data || []);
       } catch (err) {
         console.error("Error fetching turfs:", err);
         setError("Failed to load turfs. Please try again later.");
@@ -27,11 +26,8 @@ const Turfs = () => {
         if (mounted) setLoading(false);
       }
     };
-
-    fetchTurfs();
-    return () => {
-      mounted = false;
-    };
+    loadTurfs();
+    return () => { mounted = false; };
   }, [showAll]);
 
   const container = {

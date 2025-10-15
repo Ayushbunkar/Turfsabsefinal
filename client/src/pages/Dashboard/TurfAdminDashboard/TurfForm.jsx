@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Save, Upload } from "lucide-react";
+import { X, Save } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "../../../config/Api";
@@ -21,11 +21,9 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
     pricePerHour: "",
     sportType: "football",
     description: "",
-    image: null,
+  // image: null,
   });
-  const [preview, setPreview] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const previewRef = useRef(null);
+  // Remove image preview and upload progress
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -36,9 +34,9 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
         pricePerHour: editingTurf.pricePerHour || "",
         sportType: editingTurf.sportType || "football",
         description: editingTurf.description || "",
-        image: editingTurf.image || null,
+    // image: editingTurf.image || null,
       });
-      setPreview(editingTurf.image || null);
+  // setPreview(editingTurf.image || null);
     } else {
       setForm({
         name: "",
@@ -46,38 +44,13 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
         pricePerHour: "",
         sportType: "football",
         description: "",
-        image: null,
+    // image: null,
       });
-      setPreview(null);
+  // setPreview(null);
     }
   }, [editingTurf, isOpen]);
 
-  const handleImage = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      console.debug('TurfForm: selected file', file);
-      setForm({ ...form, image: file });
-      // revoke previous blob preview if any
-      try { if (previewRef.current && previewRef.current.startsWith('blob:')) URL.revokeObjectURL(previewRef.current); } catch (e) {}
-      const objUrl = URL.createObjectURL(file);
-      previewRef.current = objUrl;
-      setPreview(objUrl);
-      // Also read as data URL as a fallback for environments where blob URLs don't render
-      try {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          if (ev?.target?.result) {
-            // replace the preview with data URL (smaller images OK)
-            previewRef.current = ev.target.result;
-            setPreview(ev.target.result);
-          }
-        };
-        reader.readAsDataURL(file);
-      } catch (e) {
-        // ignore FileReader failures
-      }
-    }
-  };
+  // Remove handleImage logic
 
   const submit = async (e) => {
     e.preventDefault();
@@ -98,46 +71,26 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
         return;
       }
 
-      const formData = new FormData();
-      // Append only defined fields
-      Object.entries(form).forEach(([key, value]) => {
-        if (value === undefined || value === null) return;
-        // for files, append the File object; for arrays or objects, stringify
-        if (key === "image" && value instanceof File) {
-          formData.append("image", value);
-        } else if (typeof value === "object" && !(value instanceof File)) {
-          formData.append(key, JSON.stringify(value));
-        } else {
-          formData.append(key, value);
-        }
-      });
-
-      const config = {
-        onUploadProgress: (progressEvent) => {
-          const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-          setUploadProgress(percent);
-        },
+      // Remove FormData and upload config, use plain object
+      const turfData = {
+        name: form.name,
+        location: form.location,
+        pricePerHour: form.pricePerHour,
+        sportType: form.sportType,
+        description: form.description
       };
 
       let res;
       if (editingTurf) {
-        res = await api.put(`/api/turfs/${editingTurf._id}`, formData, config);
+        res = await api.put(`/api/turfs/${editingTurf._id}`, turfData);
         console.debug('TurfForm: update response', res?.data);
       } else {
-        res = await api.post(`/api/turfs`, formData, config);
+        res = await api.post(`/api/turfs`, turfData);
         console.debug('TurfForm: create response', res?.data);
       }
 
       // Debug: log imageUrl and turf object
-      if (res?.data) {
-        console.debug('TurfForm: server returned imageUrl:', res.data.imageUrl);
-        console.debug('TurfForm: server returned turf.images:', res.data.turf?.images);
-      }
-      if (res?.data?.imageUrl) {
-        try { if (previewRef.current && previewRef.current.startsWith('blob:')) URL.revokeObjectURL(previewRef.current); } catch (e) {}
-        previewRef.current = null;
-        setPreview(res.data.imageUrl);
-      }
+      // Remove imageUrl and preview logic
 
       toast.success(editingTurf ? "Turf updated" : "Turf created");
       onTurfAdded && onTurfAdded();
@@ -151,12 +104,7 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
     }
   };
 
-  // Cleanup preview object URL on unmount
-  useEffect(() => {
-    return () => {
-      try { if (previewRef.current && previewRef.current.startsWith('blob:')) URL.revokeObjectURL(previewRef.current); } catch (e) {}
-    };
-  }, []);
+  // Remove preview cleanup effect
 
   return (
     <AnimatePresence>
@@ -267,45 +215,7 @@ export default function TurfForm({ isOpen, onClose, onTurfAdded, editingTurf, da
                 }`}
               ></textarea>
 
-              {/* Image Upload */}
-              <div
-                className={`border-2 border-dashed rounded-lg p-4 text-center ${
-                  darkMode ? "border-gray-700 bg-gray-800" : "border-gray-300"
-                }`}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImage}
-                  id="turf-image"
-                  className="hidden"
-                />
-                <label
-                  htmlFor="turf-image"
-                  className="cursor-pointer flex flex-col items-center gap-2"
-                >
-                  <Upload className="w-5 h-5 text-green-600" />
-                  <span className="text-sm">
-                    {preview ? "Change Image" : "Upload Turf Image"}
-                  </span>
-                </label>
-
-                {/* Always render an image element — use placeholder if no preview */}
-                <img
-                  src={preview || PLACEHOLDER_SVG}
-                  alt={preview ? "Preview" : "No preview"}
-                  className="w-full h-40 object-cover rounded-lg mt-3"
-                />
-                {/* Show filename for debugging */}
-                {form.image && form.image.name && (
-                  <div className="text-xs text-gray-500 mt-2">Selected: {form.image.name}</div>
-                )}
-                {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div className="bg-green-500 h-2 rounded-full" style={{ width: `${uploadProgress}%` }} />
-                  </div>
-                )}
-              </div>
+              {/* Removed image upload UI */}
             </div>
 
             {/* Buttons */}

@@ -25,61 +25,8 @@ export const createTurf = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields: name, location, pricePerHour' });
     }
 
-    // Handle uploaded file from multer (attempt Cloudinary upload if configured)
+    // Remove all upload/image logic
     let images = [];
-    if (req.file) {
-      // Defensive: check multer actually saved the file
-      if (!req.file.filename) {
-        console.error('❌ Multer did not save file correctly. req.file:', req.file);
-        // Do not push undefined image
-      } else {
-        let imageUrl = null;
-        if (cloudinary) {
-          if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-            console.error('❌ Cloudinary config missing: Must supply cloud_name, api_key, and api_secret in .env');
-            imageUrl = `/uploads/${req.file.filename}`;
-          } else {
-            try {
-              const uploadRes = await cloudinary.uploader.upload(req.file.path, { folder: 'turfs' });
-              if (uploadRes && uploadRes.secure_url) {
-                imageUrl = uploadRes.secure_url;
-                console.log('✅ Cloudinary upload success:', uploadRes.secure_url);
-              } else {
-                imageUrl = `/uploads/${req.file.filename}`;
-                console.warn('⚠️ Cloudinary upload returned no secure_url, using local file');
-              }
-            } catch (e) {
-              console.error('❌ Cloudinary upload failed:', e);
-              imageUrl = `/uploads/${req.file.filename}`;
-            } finally {
-              // remove local file if exists
-              try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
-            }
-          }
-        } else {
-          // Cloudinary not available; fallback to local file
-          imageUrl = `/uploads/${req.file.filename}`;
-          console.warn('⚠️ Cloudinary not configured, using local file');
-        }
-        // Only push if imageUrl is valid and not undefined/null
-        if (imageUrl && imageUrl !== '/uploads/undefined' && imageUrl !== 'undefined') {
-          images.push(imageUrl);
-        } else {
-          console.error('❌ Image upload failed, imageUrl is invalid:', imageUrl);
-        }
-      }
-    } else if (req.body.images) {
-      // If images provided in body as JSON or comma-separated
-      try {
-        const parsed = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
-        if (Array.isArray(parsed)) images = parsed;
-      } catch (e) {
-        // fallback: comma-separated string
-        if (typeof req.body.images === 'string') {
-          images = req.body.images.split(',').map(s => s.trim()).filter(Boolean);
-        }
-      }
-    }
 
     // Auto-approve turfs created by admin or superadmin so they're visible immediately
     const autoApprove = req.user && (req.user.role === 'admin' || req.user.role === 'superadmin');
@@ -183,7 +130,9 @@ export const deleteTurf = async (req, res) => {
   }
 };
 
-// 🟡 SUPERADMIN - APPROVE TURF
+// � APPROVE TURF (SuperAdmin Only)
+
+// �🟡 SUPERADMIN - APPROVE TURF
 export const approveTurf = async (req, res) => {
   try {
     const turf = await Turf.findById(req.params.id);

@@ -235,7 +235,6 @@ export const releasePendingBooking = async (req, res) => {
   }
 };
 
-// ADMIN/SUPERADMIN: Cleanup pending bookings older than TTL (test helper)
 export const cleanupPendingBookings = async (req, res) => {
   try {
     // only allow superadmin for cleanup

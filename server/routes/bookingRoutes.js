@@ -26,7 +26,6 @@ router.put("/:id/status", protect, authorize("admin", "superadmin"), updateBooki
 // Admin release endpoint (cancel a pending booking to free a slot)
 router.post("/:bookingId/release", protect, authorize("admin", "superadmin"), releasePendingBooking);
 
-// Superadmin-only cleanup helper for tests: delete old pending bookings immediately
 router.post('/cleanup-pending', protect, authorize('superadmin'), cleanupPendingBookings);
 // Audit logs (admin)
 router.get('/audit-logs', protect, authorize('admin', 'superadmin'), getAuditLogs);
