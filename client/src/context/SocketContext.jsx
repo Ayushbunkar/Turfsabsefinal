@@ -10,7 +10,7 @@ export const SocketProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    const newSocket = io("http://localhost:5000"); // Replace with your backend URL
+  const newSocket = io("http://localhost:4500"); // Port now matches backend
     setSocket(newSocket);
 
     // Join a room for this user

@@ -9,6 +9,7 @@ import turfRoutes from './routes/turfRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import superadminRoutes from './routes/superadminRoutes.js';
 
 const app = express();
 
@@ -29,6 +30,10 @@ app.use('/api/turfs', turfRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+app.use('/api/superadmin', superadminRoutes);
+// Direct superadmin endpoint for legacy/frontend compatibility
+app.use('/superadmin', superadminRoutes);
 
 app.get('/', (req, res) => res.json({ message: 'Server app running' }));
 

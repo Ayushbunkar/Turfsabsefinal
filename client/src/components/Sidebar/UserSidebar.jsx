@@ -12,7 +12,7 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
 const Sidebar = ({
   onToggleDark,
@@ -20,7 +20,6 @@ const Sidebar = ({
   isMobileOpen = false,
   onMobileToggle = () => {}
 }) => {
-  const location = useLocation();
 
   const user = JSON.parse(localStorage.getItem('user')) || {
     name: 'User',
@@ -95,21 +94,21 @@ const Sidebar = ({
 
         {menuItems.map((item, index) => {
           const Icon = item.icon;
-          const active = location.pathname === item.path;
-
           return (
-            <Link
+            <NavLink
               key={index}
               to={item.path}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
-                active
-                  ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-r-2 border-green-500'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
+              className={({ isActive }) =>
+                `flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+                  isActive
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-r-2 border-green-500'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`
+              }
             >
               <Icon className="w-5 h-5" />
               <span className="font-medium">{item.label}</span>
-            </Link>
+            </NavLink>
           );
         })}
       </nav>

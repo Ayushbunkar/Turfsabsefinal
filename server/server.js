@@ -22,10 +22,32 @@ if (!process.env.JWT_SECRET) {
 
 import connectDB from './config/db.js';
 import app from './app.js';
+import { Server } from 'socket.io';
+import http from 'http';
 
-// Connect to database and start server
 connectDB();
 const PORT = process.env.PORT || 4500;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    credentials: true,
+  },
+});
+
+io.on('connection', (socket) => {
+  console.log('Socket connected:', socket.id);
+  socket.on('joinRoom', (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined room`);
+  });
+  socket.on('disconnect', () => {
+    console.log('Socket disconnected:', socket.id);
+  });
+});
+
+app.set('io', io); // Make io available in routes/controllers if needed
+
+server.listen(PORT, () => {
+  console.log(`🚀 Server running with Socket.IO at http://localhost:${PORT}`);
 });

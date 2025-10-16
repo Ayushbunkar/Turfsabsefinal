@@ -42,3 +42,6 @@ export const authorize = (...roles) => {
     next();
   };
 };
+
+// Middleware for superadmin-only routes
+export const verifySuperAdmin = [protect, authorize('superadmin')];

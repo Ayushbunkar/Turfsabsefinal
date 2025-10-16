@@ -14,6 +14,44 @@ async function safeFetch(url) {
 }
 
 const superAdminService = {
+// ...existing code...
+  formatCurrency(amount) {
+    if (typeof amount !== "number") return "-";
+    return amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 });
+  },
+  formatDate(date, opts = {}) {
+    if (!date) return "-";
+    const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
+    if (isNaN(d)) return "-";
+    const options = { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", ...opts };
+    return d.toLocaleString("en-IN", options);
+  },
+  async getDashboardStats() {
+    try {
+      const res = await api.get('/superadmin/dashboard-stats');
+      return res.data;
+    } catch (err) {
+      return {
+        totalUsers: 0,
+        totalTurfs: 0,
+        totalBookings: 0,
+        totalRevenue: 0,
+        monthlyRevenue: 0,
+        activeUsers: 0,
+        turfAdmins: 0,
+        pendingApprovals: 0,
+        systemHealth: 100
+      };
+    }
+  },
+  async getRecentActivities(limit = 10) {
+    try {
+      const res = await api.get(`/superadmin/recent-activities?limit=${limit}`);
+      return res.data;
+    } catch (err) {
+      return { activities: [] };
+    }
+  },
   async fetchOverview() {
     try {
       const res = await api.get('/superadmin/overview');
@@ -135,6 +173,17 @@ const superAdminService = {
       return [];
     }
   }
+    ,
+    // Analytics data for SuperAdminAnalytics.jsx
+    async getAnalyticsData(params = {}) {
+      try {
+        // Connect to backend analytics API (corrected endpoint)
+        const res = await api.get('/api/superadmin/analytics', { params: typeof params === 'object' ? params : {} });
+        return res.data;
+      } catch (err) {
+        throw err;
+      }
+    },
 };
 
 export default superAdminService;
