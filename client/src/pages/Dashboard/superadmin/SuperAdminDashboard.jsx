@@ -74,6 +74,12 @@ const SuperAdminDashboard = () => {
         superAdminService.getAnalyticsData("7d")
       ]);
 
+      // Log API responses for debugging
+      console.log('Dashboard Stats:', statsData);
+      console.log('Recent Activities:', activitiesData);
+      console.log('System Metrics:', metricsData);
+      console.log('Analytics Data:', analyticsDataRes);
+
       if (statsData) setStats(statsData);
       if (activitiesData?.activities) setRecentActivities(activitiesData.activities);
       if (metricsData) setSystemMetrics(metricsData);
@@ -102,46 +108,66 @@ const SuperAdminDashboard = () => {
     {
       title: "Total Users",
       value: stats.totalUsers?.toLocaleString() || "0",
-      change: "+12.5%",
-      changeType: "increase",
+      change: (() => {
+        const diff = (typeof stats.totalUsers === 'number' && typeof stats.totalUsersPrev === 'number') ? (stats.totalUsers - stats.totalUsersPrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}`;
+      })(),
+      changeType: (typeof stats.totalUsers === 'number' && typeof stats.totalUsersPrev === 'number' && (stats.totalUsers - stats.totalUsersPrev) >= 0) ? "increase" : "decrease",
       icon: Users,
-      color: "blue",
+      color: (typeof stats.totalUsers === 'number' && typeof stats.totalUsersPrev === 'number' && (stats.totalUsers - stats.totalUsersPrev) >= 0) ? "green" : "red",
       description: `${stats.activeUsers || 0} active today`
     },
     {
       title: "Total Turfs",
       value: stats.totalTurfs?.toLocaleString() || "0",
-      change: "+8.2%",
-      changeType: "increase",
+      change: (() => {
+        const diff = (typeof stats.totalTurfs === 'number' && typeof stats.totalTurfsPrev === 'number') ? (stats.totalTurfs - stats.totalTurfsPrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}`;
+      })(),
+      changeType: (typeof stats.totalTurfs === 'number' && typeof stats.totalTurfsPrev === 'number' && (stats.totalTurfs - stats.totalTurfsPrev) >= 0) ? "increase" : "decrease",
       icon: Building,
-      color: "green",
+      color: (typeof stats.totalTurfs === 'number' && typeof stats.totalTurfsPrev === 'number' && (stats.totalTurfs - stats.totalTurfsPrev) >= 0) ? "green" : "red",
       description: "Across all locations"
     },
     {
       title: "Total Bookings",
       value: stats.totalBookings?.toLocaleString() || "0",
-      change: "+15.3%",
-      changeType: "increase",
+      change: (() => {
+        const diff = (typeof stats.totalBookings === 'number' && typeof stats.totalBookingsPrev === 'number') ? (stats.totalBookings - stats.totalBookingsPrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}`;
+      })(),
+      changeType: (typeof stats.totalBookings === 'number' && typeof stats.totalBookingsPrev === 'number' && (stats.totalBookings - stats.totalBookingsPrev) >= 0) ? "increase" : "decrease",
       icon: Calendar,
-      color: "purple",
+      color: (typeof stats.totalBookings === 'number' && typeof stats.totalBookingsPrev === 'number' && (stats.totalBookings - stats.totalBookingsPrev) >= 0) ? "green" : "red",
       description: "This month"
     },
     {
       title: "Total Revenue",
       value: formatCurrency(stats.totalRevenue || 0),
-      change: "+18.7%",
-      changeType: "increase",
+      change: (() => {
+        const diff = (typeof stats.totalRevenue === 'number' && typeof stats.totalRevenuePrev === 'number') ? (stats.totalRevenue - stats.totalRevenuePrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}`;
+      })(),
+      changeType: (typeof stats.totalRevenue === 'number' && typeof stats.totalRevenuePrev === 'number' && (stats.totalRevenue - stats.totalRevenuePrev) >= 0) ? "increase" : "decrease",
       icon: DollarSign,
-      color: "orange",
+      color: (typeof stats.totalRevenue === 'number' && typeof stats.totalRevenuePrev === 'number' && (stats.totalRevenue - stats.totalRevenuePrev) >= 0) ? "green" : "red",
       description: `${formatCurrency(stats.monthlyRevenue || 0)} this month`
     },
     {
       title: "Turf Admins",
       value: stats.turfAdmins?.toLocaleString() || "0",
-      change: "+3",
-      changeType: "increase",
+      change: (() => {
+        const diff = (typeof stats.turfAdmins === 'number' && typeof stats.turfAdminsPrev === 'number') ? (stats.turfAdmins - stats.turfAdminsPrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}`;
+      })(),
+      changeType: (typeof stats.turfAdmins === 'number' && typeof stats.turfAdminsPrev === 'number' && (stats.turfAdmins - stats.turfAdminsPrev) >= 0) ? "increase" : "decrease",
       icon: Shield,
-      color: "indigo",
+      color: (typeof stats.turfAdmins === 'number' && typeof stats.turfAdminsPrev === 'number' && (stats.turfAdmins - stats.turfAdminsPrev) >= 0) ? "green" : "red",
       description: `${stats.pendingApprovals || 0} pending approval`
     },
     {

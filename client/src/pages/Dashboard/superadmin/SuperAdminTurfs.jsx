@@ -36,6 +36,12 @@ import toast from 'react-hot-toast';
 const SuperAdminTurfs = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [turfs, setTurfs] = useState([]);
+  const PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300'>
+      <rect width='100%' height='100%' fill='#f3f4f6'/>
+      <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#9ca3af' font-family='Arial, Helvetica, sans-serif' font-size='28'>No Image</text>
+    </svg>`
+  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -75,9 +81,9 @@ const SuperAdminTurfs = () => {
         sortOrder: 'desc'
       };
 
-      const response = await superAdminService.getAllTurfs(params);
-      setTurfs(response.data || []);
-      setTotalPages(response.totalPages || 1);
+  const response = await superAdminService.getAllTurfs(params);
+  setTurfs(response.turfs || []);
+  setTotalPages((response.pagination && response.pagination.totalPages) || 1);
     } catch (error) {
       console.error("Error fetching turfs:", error);
       // Set mock data on error
@@ -168,19 +174,20 @@ const SuperAdminTurfs = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-      blocked: { color: 'bg-red-100 text-red-800', icon: XCircle },
-      maintenance: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle }
+      active: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'Active' },
+      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Pending' },
+      blocked: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Blocked' },
+      maintenance: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle, label: 'Maintenance' }
     };
-    
-    const config = statusConfig[status] || statusConfig.pending;
+
+    const safeStatus = typeof status === 'string' && status in statusConfig ? status : 'pending';
+    const config = statusConfig[safeStatus];
     const Icon = config.icon;
-    
+
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
         <Icon className="w-3 h-3 mr-1" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {config.label}
       </span>
     );
   };
@@ -188,7 +195,7 @@ const SuperAdminTurfs = () => {
   const statCards = [
     {
       title: "Total Turfs",
-      value: stats.total,
+      value: isNaN(stats.total) ? 0 : stats.total,
       change: "+15%",
       changeType: "increase",
       icon: Building,
@@ -197,7 +204,7 @@ const SuperAdminTurfs = () => {
     },
     {
       title: "Active Turfs",
-      value: stats.active,
+      value: isNaN(stats.active) ? 0 : stats.active,
       change: "+8%",
       changeType: "increase", 
       icon: CheckCircle,
@@ -206,7 +213,7 @@ const SuperAdminTurfs = () => {
     },
     {
       title: "Pending Approvals",
-      value: stats.pending,
+      value: isNaN(stats.pending) ? 0 : stats.pending,
       change: "-5",
       changeType: "decrease",
       icon: Clock,
@@ -215,7 +222,7 @@ const SuperAdminTurfs = () => {
     },
     {
       title: "Total Revenue",
-      value: `₹${(stats.totalRevenue / 100000).toFixed(1)}L`,
+      value: `₹${isNaN(stats.totalRevenue) ? 0 : (stats.totalRevenue / 100000).toFixed(1)}L`,
       change: "+22%",
       changeType: "increase",
       icon: DollarSign,
@@ -402,7 +409,7 @@ const SuperAdminTurfs = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {turfs.map((turf, index) => (
               <motion.div
-                key={turf.id}
+                key={turf._id || turf.id || index}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
@@ -410,9 +417,15 @@ const SuperAdminTurfs = () => {
               >
                 {/* Turf Image */}
                 <div className="relative h-48 bg-gradient-to-r from-blue-400 to-purple-500">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Camera className="w-12 h-12 text-white opacity-50" />
-                  </div>
+                  {/* Turf Image */}
+                  <img
+                    src={
+                      (Array.isArray(turf.images) && turf.images[0]) ? turf.images[0] : PLACEHOLDER
+                    }
+                    alt={turf.name}
+                    onError={e => { e.target.onerror = null; e.target.src = PLACEHOLDER; }}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
                   <div className="absolute top-4 left-4">
                     {getStatusBadge(turf.status)}
                   </div>
@@ -434,8 +447,8 @@ const SuperAdminTurfs = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-500">{turf.category}</span>
-                      <span className="text-lg font-bold text-blue-600">
-                        ₹{turf.pricePerHour}/hr
+                      <span className="text-lg font-bold text-blue-600 flex items-center">
+                        <span className="mr-1">₹</span>{turf.pricePerHour}/hr
                       </span>
                     </div>
                   </div>
@@ -453,7 +466,8 @@ const SuperAdminTurfs = () => {
                     </div>
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center justify-center mb-1">
-                        <DollarSign className="w-4 h-4 text-gray-600" />
+                        {/* Rupee icon instead of DollarSign */}
+                        <span className="text-xl text-green-600 font-bold mr-1">₹</span>
                       </div>
                       <div className="text-sm font-medium text-gray-900">
                         ₹{((turf.revenue || 0) / 1000).toFixed(0)}k
@@ -533,18 +547,17 @@ const SuperAdminTurfs = () => {
                     </div>
 
                     <div className="flex items-center space-x-2">
-                      {turf.status === 'pending' && (
+                      {!turf.isApproved && (
                         <button
-                          onClick={() => handleStatusUpdate(turf.id, 'active')}
+                          onClick={() => handleStatusUpdate(turf._id || turf.id, 'approve')}
                           className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700"
                         >
                           Approve
                         </button>
                       )}
-                      
-                      {turf.status === 'active' && (
+                      {turf.isApproved && (
                         <button
-                          onClick={() => handleStatusUpdate(turf.id, 'blocked')}
+                          onClick={() => handleStatusUpdate(turf._id || turf.id, 'block')}
                           className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700"
                         >
                           Block

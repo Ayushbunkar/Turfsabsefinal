@@ -32,6 +32,7 @@ import toast from 'react-hot-toast';
 
 const SuperAdminEmails = () => {
   const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('campaigns');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -224,10 +225,8 @@ const SuperAdminEmails = () => {
       sent: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
       failed: { color: 'bg-red-100 text-red-800', icon: AlertTriangle }
     };
-    
     const config = statusConfig[status] || statusConfig.draft;
     const Icon = config.icon;
-    
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
         <Icon className="w-3 h-3 mr-1" />
@@ -239,35 +238,54 @@ const SuperAdminEmails = () => {
   const statCards = [
     {
       title: "Total Campaigns",
-      value: stats.totalCampaigns,
-      change: "+3",
-      changeType: "increase",
+      value: loading ? <RefreshCw className="w-5 h-5 animate-spin text-blue-600" /> : stats.totalCampaigns,
+      change: loading ? '' : (() => {
+        const diff = (typeof stats.totalCampaigns === 'number' && typeof stats.totalCampaignsPrev === 'number') ? (stats.totalCampaigns - stats.totalCampaignsPrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}`;
+      })(),
+      changeType: (typeof stats.totalCampaigns === 'number' && typeof stats.totalCampaignsPrev === 'number' && (stats.totalCampaigns - stats.totalCampaignsPrev) >= 0) ? "increase" : "decrease",
       icon: Mail,
-      color: "blue"
+      color: (typeof stats.totalCampaigns === 'number' && typeof stats.totalCampaignsPrev === 'number' && (stats.totalCampaigns - stats.totalCampaignsPrev) >= 0) ? "green" : "red"
     },
     {
       title: "Emails Sent",
-      value: stats.sentEmails?.toLocaleString() || '0',
-      change: "+1,234",
-      changeType: "increase",
+      value: loading ? <RefreshCw className="w-5 h-5 animate-spin text-green-600" /> : (stats.sentEmails?.toLocaleString() || '0'),
+      change: loading ? '' : (() => {
+        if (typeof stats.sentEmailsCurrent === 'number' && typeof stats.sentEmailsPrev === 'number') {
+          const diff = stats.sentEmailsCurrent - stats.sentEmailsPrev;
+          const sign = diff >= 0 ? '+' : '';
+          return `${sign}${diff.toLocaleString()}`;
+        }
+        return '+0';
+      })(),
+      changeType: (typeof stats.sentEmailsCurrent === 'number' && typeof stats.sentEmailsPrev === 'number' && (stats.sentEmailsCurrent - stats.sentEmailsPrev) >= 0) ? "increase" : "decrease",
       icon: Send,
-      color: "green"
+      color: (typeof stats.sentEmailsCurrent === 'number' && typeof stats.sentEmailsPrev === 'number' && (stats.sentEmailsCurrent - stats.sentEmailsPrev) >= 0) ? "green" : "red"
     },
     {
       title: "Open Rate",
-      value: `${stats.openRate}%`,
-      change: "+2.1%",
-      changeType: "increase",
+      value: loading ? <RefreshCw className="w-5 h-5 animate-spin text-purple-600" /> : `${stats.openRate}%`,
+      change: loading ? '' : (() => {
+        const diff = (typeof stats.openRate === 'number' && typeof stats.openRatePrev === 'number') ? (stats.openRate - stats.openRatePrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}%`;
+      })(),
+      changeType: (typeof stats.openRate === 'number' && typeof stats.openRatePrev === 'number' && (stats.openRate - stats.openRatePrev) >= 0) ? "increase" : "decrease",
       icon: Eye,
-      color: "purple"
+      color: (typeof stats.openRate === 'number' && typeof stats.openRatePrev === 'number' && (stats.openRate - stats.openRatePrev) >= 0) ? "green" : "red"
     },
     {
       title: "Click Rate",
-      value: `${stats.clickRate}%`,
-      change: "+0.5%",
-      changeType: "increase",
+      value: loading ? <RefreshCw className="w-5 h-5 animate-spin text-orange-600" /> : `${stats.clickRate}%`,
+      change: loading ? '' : (() => {
+        const diff = (typeof stats.clickRate === 'number' && typeof stats.clickRatePrev === 'number') ? (stats.clickRate - stats.clickRatePrev) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        return `${sign}${diff}%`;
+      })(),
+      changeType: (typeof stats.clickRate === 'number' && typeof stats.clickRatePrev === 'number' && (stats.clickRate - stats.clickRatePrev) >= 0) ? "increase" : "decrease",
       icon: TrendingUp,
-      color: "orange"
+      color: (typeof stats.clickRate === 'number' && typeof stats.clickRatePrev === 'number' && (stats.clickRate - stats.clickRatePrev) >= 0) ? "green" : "red"
     }
   ];
 
@@ -289,6 +307,30 @@ const SuperAdminEmails = () => {
       </div>
     );
   }
+    if (error) {
+      return (
+        <div className="flex min-h-screen bg-gray-50">
+          <SuperAdminSidebar />
+          <div className="flex-1 lg:ml-80">
+            <SuperAdminNavbar />
+            <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
+              <div className="flex items-center justify-center h-96">
+                <div className="flex flex-col items-center space-y-2">
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                  <span className="text-lg text-red-600">Failed to load email data.</span>
+                  <button
+                    onClick={fetchData}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
 
   return (
     <div className="flex min-h-screen bg-gray-50">

@@ -11,19 +11,19 @@ const SuperAdminSidebar = ({ isMobileOpen = false }) => {
   const navigate = useNavigate();
 
   const items = [
-    { title: 'Dashboard', icon: LayoutDashboard, path: '/super-admin/dashboard' },
-    { title: 'Users', icon: Users, path: '/super-admin/users' },
-    { title: 'Turf Admins', icon: Shield, path: '/super-admin/turf-admins' },
-    { title: 'Turfs', icon: Building, path: '/super-admin/turfs' },
-    { title: 'Bookings', icon: UserCheck, path: '/super-admin/bookings' },
-    { title: 'Analytics', icon: BarChart3, path: '/super-admin/analytics' },
-    { title: 'Revenue', icon: DollarSign, path: '/super-admin/revenue' },
-    { title: 'System Health', icon: Activity, path: '/super-admin/system-health' },
-    { title: 'Notifications', icon: Bell, path: '/super-admin/notifications' },
-    { title: 'Database', icon: Database, path: '/super-admin/database' },
-    { title: 'Emails', icon: Mail, path: '/super-admin/emails' },
-    { title: 'Support', icon: HelpCircle, path: '/super-admin/support' },
-    { title: 'Settings', icon: Settings, path: '/super-admin/settings' },
+    { title: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/superadmin' },
+    { title: 'Users', icon: Users, path: '/dashboard/superadmin/users' },
+    { title: 'Turf Admins', icon: Shield, path: '/dashboard/superadmin/turf-admins' },
+    { title: 'Turfs', icon: Building, path: '/dashboard/superadmin/turfs' },
+    { title: 'Bookings', icon: UserCheck, path: '/dashboard/superadmin/bookings' },
+    { title: 'Analytics', icon: BarChart3, path: '/dashboard/superadmin/analytics' },
+    { title: 'Revenue', icon: DollarSign, path: '/dashboard/superadmin/revenue' },
+    { title: 'System Health', icon: Activity, path: '/dashboard/superadmin/system-health' },
+    { title: 'Notifications', icon: Bell, path: '/dashboard/superadmin/notifications' },
+    { title: 'Database', icon: Database, path: '/dashboard/superadmin/database' },
+    { title: 'Emails', icon: Mail, path: '/dashboard/superadmin/emails' },
+    { title: 'Support', icon: HelpCircle, path: '/dashboard/superadmin/support' },
+    { title: 'Settings', icon: Settings, path: '/dashboard/superadmin/settings' },
   ];
 
   const handleLogout = () => {

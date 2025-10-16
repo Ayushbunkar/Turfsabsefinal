@@ -36,6 +36,7 @@ const SuperAdminSettings = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState({
     current: false,
     new: false,
@@ -51,6 +52,16 @@ const SuperAdminSettings = () => {
     lastLogin: "",
     createdAt: ""
   });
+
+  const PROFILE_DEFAULTS = {
+    name: "",
+    email: "",
+    phone: "",
+    avatar: null,
+    role: "superAdmin",
+    lastLogin: "",
+    createdAt: ""
+  };
   
   const [passwords, setPasswords] = useState({
     currentPassword: "",
@@ -83,6 +94,7 @@ const SuperAdminSettings = () => {
     systemAlerts: true,
     marketingEmails: false
   });
+  const [savingNotifications, setSavingNotifications] = useState({});
   
   const [securitySettings, setSecuritySettings] = useState({
     twoFactorAuth: false,
@@ -100,14 +112,19 @@ const SuperAdminSettings = () => {
   const fetchAllSettings = async () => {
     setLoading(true);
     try {
-      const [profileData, systemData, notificationData, securityData] = await Promise.all([
+      const [profileDataRaw, systemDataRaw, notificationDataRaw, securityDataRaw] = await Promise.all([
         superAdminService.getProfile(),
         superAdminService.getSystemSettings(),
         superAdminService.getNotificationSettings(),
         superAdminService.getSecuritySettings()
       ]);
-      
-      setProfile(profileData);
+
+      const profileData = profileDataRaw?.profile || profileDataRaw || {};
+      const systemData = systemDataRaw?.settings || systemDataRaw || {};
+      const notificationData = notificationDataRaw?.settings || notificationDataRaw || {};
+      const securityData = securityDataRaw?.settings || securityDataRaw || {};
+
+  setProfile({ ...PROFILE_DEFAULTS, ...(profileData || {}) });
       setSystemSettings(systemData);
       setNotificationSettings(notificationData);
       setSecuritySettings(securityData);
@@ -123,11 +140,21 @@ const SuperAdminSettings = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await superAdminService.updateProfile(profile);
+      const updated = await superAdminService.updateProfile(profile);
+      // service returns either { profile } or the profile object directly; ensure we update state
+  const returnedProfile = updated?.profile || updated || profile;
+  setProfile({ ...PROFILE_DEFAULTS, ...(returnedProfile || {}) });
       toast.success('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      const serverMsg = error?.response?.data?.error || error?.message || 'Failed to update profile';
+      const fErrors = error?.response?.data?.fieldErrors;
+      if (fErrors) {
+        setFieldErrors(fErrors);
+        Object.values(fErrors).forEach(msg => toast.error(msg));
+      } else {
+        toast.error(serverMsg);
+      }
     } finally {
       setSaving(false);
     }
@@ -155,7 +182,8 @@ const SuperAdminSettings = () => {
       });
     } catch (error) {
       console.error('Error changing password:', error);
-      toast.error('Failed to change password');
+      const serverMsg = error?.response?.data?.error || error?.message || 'Failed to change password';
+      toast.error(serverMsg);
     } finally {
       setSaving(false);
     }
@@ -177,13 +205,41 @@ const SuperAdminSettings = () => {
   const handleNotificationSettingsSave = async () => {
     setSaving(true);
     try {
-      await superAdminService.updateNotificationSettings(notificationSettings);
+      const res = await superAdminService.updateNotificationSettings(notificationSettings);
+      // service returns the saved settings object
+      const saved = res?.settings || res || {};
+      setNotificationSettings(saved);
       toast.success('Notification settings updated successfully!');
     } catch (error) {
       console.error('Error updating notification settings:', error);
       toast.error('Failed to update notification settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Optimistic per-toggle save: toggles a single key and persists immediately
+  const toggleNotification = async (key) => {
+    const prev = notificationSettings[key];
+    const next = !prev;
+    // Optimistic UI update
+    setNotificationSettings((p) => ({ ...p, [key]: next }));
+    setSavingNotifications((s) => ({ ...s, [key]: true }));
+    try {
+      // send partial update (server merges)
+      const res = await superAdminService.updateNotificationSettings({ [key]: next });
+      const saved = res?.settings || res || {};
+      // merge authoritative server settings
+      setNotificationSettings((p) => ({ ...p, ...saved }));
+      toast.success(`${key.replace(/([A-Z])/g, ' $1')} ${next ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      console.error('Failed to save notification toggle', key, err);
+      // rollback
+      setNotificationSettings((p) => ({ ...p, [key]: prev }));
+      const serverMsg = err?.response?.data?.error || err?.message || 'Failed to update notification';
+      toast.error(serverMsg);
+    } finally {
+      setSavingNotifications((s) => { const copy = { ...s }; delete copy[key]; return copy; });
     }
   };
 
@@ -305,36 +361,48 @@ const SuperAdminSettings = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                         <input
                           type="text"
-                          value={profile.name}
-                          onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                          value={profile.name ?? ''}
+                          onChange={(e) => {
+                            setProfile({ ...profile, name: e.target.value });
+                            if (fieldErrors.name) setFieldErrors(prev => { const p = { ...prev }; delete p.name; return p; });
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           required
                         />
+                        {fieldErrors.name && <div className="text-sm text-red-600 mt-1">{fieldErrors.name}</div>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                         <input
                           type="email"
-                          value={profile.email}
-                          onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                          value={profile.email ?? ''}
+                          onChange={(e) => {
+                            setProfile({ ...profile, email: e.target.value });
+                            if (fieldErrors.email) setFieldErrors(prev => { const p = { ...prev }; delete p.email; return p; });
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           required
                         />
+                        {fieldErrors.email && <div className="text-sm text-red-600 mt-1">{fieldErrors.email}</div>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                         <input
                           type="tel"
-                          value={profile.phone}
-                          onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                          value={profile.phone ?? ''}
+                          onChange={(e) => {
+                            setProfile({ ...profile, phone: e.target.value });
+                            if (fieldErrors.phone) setFieldErrors(prev => { const p = { ...prev }; delete p.phone; return p; });
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
+                        {fieldErrors.phone && <div className="text-sm text-red-600 mt-1">{fieldErrors.phone}</div>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
                         <input
                           type="text"
-                          value={profile.role}
+                          value={profile.role ?? ''}
                           disabled
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                         />
@@ -593,16 +661,22 @@ const SuperAdminSettings = () => {
                         </p>
                       </div>
                       <button
-                        onClick={() => setNotificationSettings({ ...notificationSettings, [key]: !value })}
+                        onClick={() => toggleNotification(key)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                           value ? 'bg-blue-600' : 'bg-gray-200'
                         }`}
+                        disabled={!!savingNotifications[key]}
                       >
                         <span
                           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                             value ? 'translate-x-6' : 'translate-x-1'
                           }`}
                         />
+                        {savingNotifications[key] && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <RefreshCw className="w-3 h-3 animate-spin text-white" />
+                          </div>
+                        )}
                       </button>
                     </div>
                   ))}

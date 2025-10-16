@@ -58,6 +58,42 @@ const SuperAdminSupport = () => {
     agents: 0
   });
 
+  // Stat cards for the top overview (keeps same shape as other superadmin pages)
+  const statCards = [
+    {
+      title: 'Total Tickets',
+      value: stats.totalTickets || 0,
+      change: stats.changeTotal ? (stats.changeTotal > 0 ? `+${stats.changeTotal}` : `${stats.changeTotal}`) : '0',
+      changeType: (stats.changeTotal || 0) >= 0 ? 'increase' : 'decrease',
+      icon: MessageCircle,
+      color: 'blue'
+    },
+    {
+      title: 'Open Tickets',
+      value: stats.openTickets || 0,
+      change: stats.changePending ? (stats.changePending > 0 ? `+${stats.changePending}` : `${stats.changePending}`) : '0',
+      changeType: (stats.changePending || 0) >= 0 ? 'increase' : 'decrease',
+      icon: AlertTriangle,
+      color: 'red'
+    },
+    {
+      title: 'Resolved',
+      value: stats.resolvedTickets || 0,
+      change: stats.changeResolved ? (stats.changeResolved > 0 ? `+${stats.changeResolved}` : `${stats.changeResolved}`) : '0',
+      changeType: (stats.changeResolved || 0) >= 0 ? 'increase' : 'decrease',
+      icon: CheckCircle,
+      color: 'green'
+    },
+    {
+      title: 'Agents',
+      value: stats.agents || 0,
+      change: '0',
+      changeType: 'increase',
+      icon: Users,
+      color: 'purple'
+    }
+  ];
+
   useEffect(() => {
     fetchData();
   }, [activeTab, currentPage, searchTerm, statusFilter, priorityFilter]);
@@ -79,13 +115,20 @@ const SuperAdminSupport = () => {
       setTickets(response.data || []);
       setTotalPages(response.totalPages || 1);
 
-      // Fetch support stats
-      const statsResponse = await superAdminService.getSupportStats();
-      setStats(statsResponse || stats);
 
-      // Fetch analytics
-      const analyticsResponse = await superAdminService.getSupportAnalytics();
-      setSupportAnalytics(analyticsResponse || []);
+        // Fetch real support analytics for stat cards
+        const analytics = await superAdminService.getSupportAnalytics();
+        setStats({
+          totalTickets: analytics.totalCurrent,
+          openTickets: analytics.pendingCurrent,
+          resolvedTickets: analytics.resolvedCurrent,
+          urgentTickets: analytics.urgentCurrent,
+          // You can add more fields if needed
+          changeTotal: analytics.totalCurrent - analytics.totalPrev,
+          changeResolved: analytics.resolvedCurrent - analytics.resolvedPrev,
+          changePending: analytics.pendingCurrent - analytics.pendingPrev,
+          changeUrgent: analytics.urgentCurrent - analytics.urgentPrev
+        });
 
     } catch (error) {
       console.error("Error fetching support data:", error);
@@ -219,40 +262,10 @@ const SuperAdminSupport = () => {
     return icons[category] || icons.general;
   };
 
-  const statCards = [
-    {
-      title: "Total Tickets",
-      value: stats.totalTickets,
-      change: "+12",
-      changeType: "increase",
-      icon: MessageSquare,
-      color: "blue"
-    },
-    {
-      title: "Open Tickets",
-      value: stats.openTickets,
-      change: "-5",
-      changeType: "decrease",
-      icon: AlertTriangle,
-      color: "red"
-    },
-    {
-      title: "Avg Response Time",
-      value: `${stats.avgResponseTime}h`,
-      change: "-0.3h",
-      changeType: "decrease",
-      icon: Clock,
-      color: "yellow"
-    },
-    {
-      title: "Satisfaction",
-      value: `${stats.satisfaction}/5`,
-      change: "+0.2",
-      changeType: "increase",
-      icon: Star,
-      color: "green"
-    }
-  ];
+          {/* Stats Cards */}
+          {/* ...existing code... */}
+  // Stat cards array (move here, outside JSX)
+          {/* Stats Cards */}
 
   const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -311,41 +324,32 @@ const SuperAdminSupport = () => {
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {statCards.map((card, index) => {
+          {/* Stats Cards Rendering */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {statCards.map((card, idx) => {
               const Icon = card.icon;
-              const colorTokens = {
-                blue: { bg: 'bg-blue-100', icon: 'text-blue-600' },
-                green: { bg: 'bg-green-100', icon: 'text-green-600' },
-                yellow: { bg: 'bg-yellow-100', icon: 'text-yellow-600' },
-                red: { bg: 'bg-red-100', icon: 'text-red-600' },
-                purple: { bg: 'bg-purple-100', icon: 'text-purple-600' },
-                default: { bg: 'bg-gray-100', icon: 'text-gray-600' }
-              };
-              const token = colorTokens[card.color] || colorTokens.default;
               return (
                 <motion.div
                   key={card.title}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                  transition={{ delay: idx * 0.1 }}
+                  className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-start justify-between"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${token.bg} ${token.icon}`}>
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${card.color === 'green' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       <Icon className="w-6 h-6" />
-                    </div>
-                    <span className={`text-sm font-medium ${
-                      card.changeType === 'increase' ? 'text-green-600' : 
-                      card.changeType === 'decrease' ? 'text-red-600' : 'text-gray-600'
-                    }`}>
-                      {card.change}
                     </span>
+                    <span className="text-2xl font-bold text-gray-900">{card.value}</span>
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{card.value}</h3>
-                    <p className="text-gray-600 text-sm font-medium">{card.title}</p>
+                  <p className="text-gray-600 text-sm font-medium">{card.title}</p>
+                  <div className="flex items-center mt-2">
+                    {card.changeType === 'increase' ? (
+                      <ArrowUp className="w-4 h-4 text-green-500 mr-1" />
+                    ) : (
+                      <ArrowDown className="w-4 h-4 text-red-500 mr-1" />
+                    )}
+                    <span className={`font-semibold ${card.changeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>{card.change}</span>
                   </div>
                 </motion.div>
               );

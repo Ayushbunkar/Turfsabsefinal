@@ -80,83 +80,6 @@ const SuperAdminAnalytics = () => {
     } catch (error) {
       console.error('Error fetching analytics:', error);
       toast.error('Failed to fetch analytics data');
-      // Set mock data for demonstration
-      setAnalyticsData({
-        overview: {
-          totalBookings: 1250,
-          totalRevenue: 125000,
-          totalUsers: 850,
-          totalTurfs: 45,
-          growthMetrics: {
-            bookingsGrowth: 12.5,
-            revenueGrowth: 18.2,
-            usersGrowth: 8.7,
-            turfsGrowth: 15.3
-          }
-        },
-        bookingTrends: [
-          { date: '2024-01-01', bookings: 45, revenue: 4500 },
-          { date: '2024-01-02', bookings: 52, revenue: 5200 },
-          { date: '2024-01-03', bookings: 38, revenue: 3800 },
-          { date: '2024-01-04', bookings: 61, revenue: 6100 },
-          { date: '2024-01-05', bookings: 49, revenue: 4900 },
-          { date: '2024-01-06', bookings: 58, revenue: 5800 },
-          { date: '2024-01-07', bookings: 67, revenue: 6700 }
-        ],
-        revenueTrends: [
-          { month: 'Jan', revenue: 28000, bookings: 280 },
-          { month: 'Feb', revenue: 32000, bookings: 320 },
-          { month: 'Mar', revenue: 29000, bookings: 290 },
-          { month: 'Apr', revenue: 35000, bookings: 350 },
-          { month: 'May', revenue: 38000, bookings: 380 },
-          { month: 'Jun', revenue: 42000, bookings: 420 }
-        ],
-        userRegistrations: [
-          { date: '2024-01-01', users: 12 },
-          { date: '2024-01-02', users: 8 },
-          { date: '2024-01-03', users: 15 },
-          { date: '2024-01-04', users: 20 },
-          { date: '2024-01-05', users: 18 },
-          { date: '2024-01-06', users: 22 },
-          { date: '2024-01-07', users: 25 }
-        ],
-        turfPerformance: [
-          { name: 'Elite Sports Arena', bookings: 156, revenue: 15600 },
-          { name: 'Champions Ground', bookings: 134, revenue: 13400 },
-          { name: 'Victory Field', bookings: 128, revenue: 12800 },
-          { name: 'Sports Hub', bookings: 112, revenue: 11200 },
-          { name: 'Premier Turf Club', bookings: 98, revenue: 9800 }
-        ],
-        geographicDistribution: [
-          { city: 'Mumbai', users: 285, percentage: 33.5 },
-          { city: 'Bangalore', users: 198, percentage: 23.3 },
-          { city: 'Delhi', users: 165, percentage: 19.4 },
-          { city: 'Chennai', users: 102, percentage: 12.0 },
-          { city: 'Others', users: 100, percentage: 11.8 }
-        ],
-        paymentMethods: [
-          { method: 'UPI', count: 425, percentage: 45.2 },
-          { method: 'Card', count: 312, percentage: 33.2 },
-          { method: 'Wallet', count: 156, percentage: 16.6 },
-          { method: 'Cash', count: 47, percentage: 5.0 }
-        ],
-        popularSports: [
-          { sport: 'Football', bookings: 485, percentage: 52.1 },
-          { sport: 'Cricket', bookings: 234, percentage: 25.2 },
-          { sport: 'Badminton', bookings: 134, percentage: 14.4 },
-          { sport: 'Tennis', bookings: 77, percentage: 8.3 }
-        ],
-        peakHours: [
-          { hour: '06:00', bookings: 45 },
-          { hour: '07:00', bookings: 67 },
-          { hour: '08:00', bookings: 34 },
-          { hour: '17:00', bookings: 89 },
-          { hour: '18:00', bookings: 156 },
-          { hour: '19:00', bookings: 134 },
-          { hour: '20:00', bookings: 98 },
-          { hour: '21:00', bookings: 67 }
-        ]
-      });
     } finally {
       setLoading(false);
     }
@@ -203,7 +126,7 @@ const SuperAdminAnalytics = () => {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <SuperAdminSidebar />
-      <div className="flex-1 lg:ml-80">
+        <div className="flex-1 lg:ml-80">
           <SuperAdminNavbar />
           <main className="p-4 lg:p-8 pb-4 pt-32 lg:pt-40 min-h-screen">
             <div className="flex items-center justify-center h-96">
@@ -222,22 +145,22 @@ const SuperAdminAnalytics = () => {
     <div className="flex min-h-screen bg-gray-50">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
           onClick={() => setIsMobileSidebarOpen(false)}
         />
       )}
-      
+
       {/* Sidebar */}
-      <SuperAdminSidebar 
-        isMobileOpen={isMobileSidebarOpen} 
-        onMobileClose={() => setIsMobileSidebarOpen(false)} 
+      <SuperAdminSidebar
+        isMobileOpen={isMobileSidebarOpen}
+        onMobileClose={() => setIsMobileSidebarOpen(false)}
       />
-      
+
       {/* Main Content */}
       <div className="flex-1 lg:ml-80">
         <SuperAdminNavbar onMobileMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
-        
+
         <main className="p-4 lg:p-8 pb-4 pt-48 lg:pt-40 min-h-screen">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
@@ -275,7 +198,7 @@ const SuperAdminAnalytics = () => {
           </div>
 
           {/* Overview Cards */}
-                    {/* Overview Cards */}
+          {/* Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -368,7 +291,7 @@ const SuperAdminAnalytics = () => {
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis yAxisId="bookings" orientation="left" tick={{ fontSize: 12 }} />
                   <YAxis yAxisId="revenue" orientation="right" tick={{ fontSize: 12 }} />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value, name) => [
                       name === 'bookings' ? value : formatCurrency(value),
                       name === 'bookings' ? 'Bookings' : 'Revenue'

@@ -38,12 +38,12 @@ const SuperAdminDatabase = () => {
   const [selectedDatabase, setSelectedDatabase] = useState('all');
   
   const [databaseStats, setDatabaseStats] = useState({
-    totalSize: '2.4 GB',
-    totalTables: 45,
-    totalRecords: 125670,
-    lastBackup: '2025-01-04T10:30:00Z',
-    connectionPool: 85,
-    queryPerformance: 'Good'
+    totalSize: '',
+    totalTables: 0,
+    totalRecords: 0,
+    lastBackup: '',
+    connectionPool: 0,
+    queryPerformance: ''
   });
 
   const [tables, setTables] = useState([]);
@@ -72,9 +72,22 @@ const SuperAdminDatabase = () => {
         superAdminService.getDatabasePerformance()
       ]);
 
-      // Set stats data
+      // Set stats data from backend response
       if (statsResponse.status === 'fulfilled' && statsResponse.value) {
-        setDatabaseStats(statsResponse.value);
+        const stats = statsResponse.value.stats || {};
+        const collections = statsResponse.value.collections || [];
+        // Calculate total tables and records
+        const totalTables = collections.length;
+        const totalRecords = collections.reduce((sum, col) => sum + (col.count || 0), 0);
+        setDatabaseStats({
+          totalSize: stats.dataSize ? `${(stats.dataSize / (1024 * 1024)).toFixed(2)} MB` : '0 MB',
+          totalTables,
+          totalRecords,
+          lastBackup: statsResponse.value.lastBackup || '',
+          connectionPool: stats.connections ? stats.connections.current : 0,
+          connectionPoolPercent: typeof statsResponse.value.connectionPoolPercent === 'number' ? statsResponse.value.connectionPoolPercent : 0,
+          queryPerformance: stats.ok ? 'Healthy' : 'Error'
+        });
       } else {
         console.error("Failed to load database stats:", statsResponse.reason);
         toast.error("Failed to load database statistics");
@@ -179,15 +192,15 @@ const SuperAdminDatabase = () => {
     {
       title: "Database Size",
       value: databaseStats.totalSize,
-      change: "+5.2%",
-      changeType: "increase",
+      change: "",
+      changeType: "neutral",
       icon: HardDrive,
       color: "blue"
     },
     {
       title: "Total Tables",
       value: databaseStats.totalTables,
-      change: "0",
+      change: "",
       changeType: "neutral",
       icon: Database,
       color: "green"
@@ -195,18 +208,26 @@ const SuperAdminDatabase = () => {
     {
       title: "Total Records",
       value: databaseStats.totalRecords?.toLocaleString() || '0',
-      change: "+1,234",
-      changeType: "increase",
+      change: "",
+      changeType: "neutral",
       icon: FileText,
       color: "purple"
     },
     {
       title: "Connection Pool",
-      value: `${databaseStats.connectionPool}%`,
-      change: "+3%",
-      changeType: "increase",
+      value: `${databaseStats.connectionPool} (${databaseStats.connectionPoolPercent}%)`,
+      change: databaseStats.connectionPoolPercent >= 70 ? `${databaseStats.connectionPoolPercent}%` : '',
+      changeType: databaseStats.connectionPoolPercent >= 70 ? "increase" : "neutral",
       icon: Server,
-      color: "orange"
+      color: databaseStats.connectionPoolPercent >= 70 ? "green" : "orange"
+    },
+    {
+      title: "Last Backup",
+      value: databaseStats.lastBackup ? new Date(databaseStats.lastBackup).toLocaleString() : 'N/A',
+      change: "",
+      changeType: "neutral",
+      icon: Archive,
+      color: "gray"
     }
   ];
 
@@ -340,27 +361,80 @@ const SuperAdminDatabase = () => {
             <div className="p-6">
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  {/* Database Performance Chart */}
+                  {/* Database Size Trend Chart (simulate with current size) */}
                   <div className="bg-gray-50 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Database Performance (24h)</h3>
-                    {performance.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600">No performance data available</p>
-                      </div>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={performance}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="time" />
-                          <YAxis />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="connections" stroke="#3B82F6" strokeWidth={2} />
-                          <Line type="monotone" dataKey="queries" stroke="#10B981" strokeWidth={2} />
-                          <Line type="monotone" dataKey="responseTime" stroke="#F59E0B" strokeWidth={2} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    )}
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Database Size Trend</h3>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <AreaChart data={[{ time: 'Now', size: parseFloat(databaseStats.totalSize) || 0 }]}> {/* Replace with real trend data if available */}
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="time" />
+                        <YAxis />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="size" stroke="#6366F1" fill="#A5B4FC" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Table Distribution Pie Chart */}
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Table Distribution</h3>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={tables.map(t => ({ name: t.name, value: t.count }))}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#3B82F6"
+                          label
+                        >
+                          {tables.map((entry, idx) => (
+                            <Cell key={`cell-${idx}`} fill={["#3B82F6", "#10B981", "#F59E0B", "#6366F1", "#EF4444"][idx % 5]} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Record Growth Bar Chart (simulate with current records) */}
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Record Growth</h3>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={[{ time: 'Now', records: databaseStats.totalRecords }]}> {/* Replace with real growth data if available */}
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="time" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="records" fill="#10B981" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Connection Pool Gauge */}
+                  <div className="bg-gray-50 p-6 rounded-lg flex flex-col items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Connection Pool Usage</h3>
+                    <div className="relative w-40 h-40 flex items-center justify-center">
+                      <svg width="160" height="160" viewBox="0 0 160 160">
+                        <circle cx="80" cy="80" r="70" fill="#F3F4F6" />
+                        <circle
+                          cx="80"
+                          cy="80"
+                          r="70"
+                          fill="none"
+                          stroke="#10B981"
+                          strokeWidth="16"
+                          strokeDasharray={2 * Math.PI * 70}
+                          strokeDashoffset={2 * Math.PI * 70 * (1 - (databaseStats.connectionPoolPercent || 0) / 100)}
+                          strokeLinecap="round"
+                        />
+                        <text x="50%" y="54%" textAnchor="middle" fontSize="2em" fill="#10B981" fontWeight="bold">
+                          {databaseStats.connectionPoolPercent || 0}%
+                        </text>
+                      </svg>
+                      <span className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-gray-600 text-sm">Current Usage</span>
+                    </div>
                   </div>
 
                   {/* Quick Stats */}

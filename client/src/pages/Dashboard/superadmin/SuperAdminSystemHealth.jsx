@@ -45,9 +45,9 @@ const SuperAdminSystemHealth = () => {
   const [loading, setLoading] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30); // seconds
   const [systemMetrics, setSystemMetrics] = useState({
-    serverLoad: 0,
     memoryUsage: 0,
-    cpuUsage: 0,
+    perCore: [],
+    historicalCpu: [],
     diskUsage: 0,
     networkLatency: 0,
     activeConnections: 0,
@@ -74,10 +74,20 @@ const SuperAdminSystemHealth = () => {
         superAdminService.getPerformanceHistory('1h')
       ]);
 
-      setSystemMetrics(metricsResponse || systemMetrics);
+      // Patch: Use correct keys from backend response
+      setSystemMetrics({
+        memoryUsage: metricsResponse?.memoryUsage ?? 0,
+        perCore: metricsResponse?.perCore ?? [],
+        historicalCpu: metricsResponse?.historicalCpu ?? [],
+        diskUsage: metricsResponse?.diskUsage ?? 0,
+        networkLatency: metricsResponse?.networkLatency ?? 0,
+        activeConnections: metricsResponse?.activeConnections ?? 0,
+        uptime: metricsResponse?.uptime ?? 0,
+        responseTime: metricsResponse?.responseTime ?? 0
+      });
       setAlerts(alertsResponse || []);
-      setServices(servicesResponse || []);
-      setPerformanceData(performanceResponse || []);
+      setServices(servicesResponse?.services || []);
+      setPerformanceData(performanceResponse?.data || []);
     } catch (error) {
       console.error("Error fetching system health:", error);
       // Set mock data on error
@@ -162,36 +172,36 @@ const SuperAdminSystemHealth = () => {
 
   const metricCards = [
     {
-      title: "Server Load",
-      value: `${systemMetrics.serverLoad}%`,
-      icon: Server,
-      color: getStatusColor(systemMetrics.serverLoad),
-      bgColor: getStatusBg(systemMetrics.serverLoad),
-      description: "Current server utilization"
-    },
-    {
       title: "Memory Usage", 
-      value: `${systemMetrics.memoryUsage}%`,
+      value: `${systemMetrics.memoryUsage ?? 0} MB`,
       icon: HardDrive,
-      color: getStatusColor(systemMetrics.memoryUsage),
-      bgColor: getStatusBg(systemMetrics.memoryUsage),
+      color: getStatusColor(systemMetrics.memoryUsage ?? 0),
+      bgColor: getStatusBg(systemMetrics.memoryUsage ?? 0),
       description: "RAM consumption"
     },
     {
-      title: "CPU Usage",
-      value: `${systemMetrics.cpuUsage}%`,
+      title: "CPU Usage (Avg)",
+      value: `${systemMetrics.perCore && systemMetrics.perCore.length > 0 ? (systemMetrics.perCore.reduce((sum, c) => sum + c.usage, 0) / systemMetrics.perCore.length).toFixed(1) : 0}%`,
       icon: Cpu,
-      color: getStatusColor(systemMetrics.cpuUsage),
-      bgColor: getStatusBg(systemMetrics.cpuUsage),
-      description: "Processor utilization"
+      color: getStatusColor(systemMetrics.perCore && systemMetrics.perCore.length > 0 ? (systemMetrics.perCore.reduce((sum, c) => sum + c.usage, 0) / systemMetrics.perCore.length) : 0),
+      bgColor: getStatusBg(systemMetrics.perCore && systemMetrics.perCore.length > 0 ? (systemMetrics.perCore.reduce((sum, c) => sum + c.usage, 0) / systemMetrics.perCore.length) : 0),
+      description: "Avg processor utilization"
     },
     {
       title: "Network Latency",
-      value: `${systemMetrics.networkLatency}ms`,
+      value: `${systemMetrics.networkLatency ?? 0} ms`,
       icon: Wifi,
-      color: getStatusColor(systemMetrics.networkLatency, { good: 50, warning: 100 }),
-      bgColor: getStatusBg(systemMetrics.networkLatency, { good: 50, warning: 100 }),
+      color: getStatusColor(systemMetrics.networkLatency ?? 0, { good: 50, warning: 100 }),
+      bgColor: getStatusBg(systemMetrics.networkLatency ?? 0, { good: 50, warning: 100 }),
       description: "Response time"
+    },
+    {
+      title: "Disk Usage",
+      value: `${systemMetrics.diskUsage ?? 0} GB`,
+      icon: HardDrive,
+      color: getStatusColor(systemMetrics.diskUsage ?? 0),
+      bgColor: getStatusBg(systemMetrics.diskUsage ?? 0),
+      description: "Disk consumption"
     }
   ];
 

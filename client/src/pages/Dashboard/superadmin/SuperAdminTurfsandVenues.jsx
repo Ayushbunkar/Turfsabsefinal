@@ -76,47 +76,13 @@ const SuperAdminTurfs = () => {
       };
 
       const response = await superAdminService.getAllTurfs(params);
-      setTurfs(response.data || []);
-      setTotalPages(response.totalPages || 1);
+      // Debug: log response to verify fields
+      console.log('Turfs API response:', response);
+      setTurfs(response.turfs || []);
+      setTotalPages(response.pagination?.totalPages || 1);
     } catch (error) {
       console.error("Error fetching turfs:", error);
-      // Set mock data on error
-      setTurfs([
-        {
-          id: 1,
-          name: "Elite Sports Arena",
-          location: "Sector 18, Gurgaon",
-          category: "Football",
-          status: "active",
-          rating: 4.8,
-          reviewsCount: 124,
-          pricePerHour: 2500,
-          amenities: ["Parking", "Changing Room", "Lighting"],
-          owner: { name: "Rahul Sharma", email: "rahul@example.com" },
-          totalBookings: 1250,
-          revenue: 312500,
-          images: ["turf1.jpg"],
-          createdAt: "2024-01-15",
-          lastBooking: "2025-01-03"
-        },
-        {
-          id: 2,
-          name: "Champions Ground",
-          location: "CP, New Delhi",
-          category: "Cricket",
-          status: "pending",
-          rating: 4.5,
-          reviewsCount: 89,
-          pricePerHour: 3000,
-          amenities: ["Parking", "Cafeteria", "Equipment"],
-          owner: { name: "Amit Kumar", email: "amit@example.com" },
-          totalBookings: 890,
-          revenue: 267000,
-          images: ["turf2.jpg"],
-          createdAt: "2024-02-20",
-          lastBooking: "2025-01-02"
-        }
-      ]);
+      setTurfs([]);
       setTotalPages(1);
     } finally {
       setLoading(false);
@@ -230,7 +196,7 @@ const SuperAdminTurfs = () => {
 
   if (loading && turfs.length === 0) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="flex   min-h-screen bg-gray-50">
         <SuperAdminSidebar />
         <div className="flex-1 lg:ml-80">
           <SuperAdminNavbar />
@@ -248,7 +214,7 @@ const SuperAdminTurfs = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex mt-20  pt-20  min-h-screen bg-gray-50">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div 
@@ -264,7 +230,7 @@ const SuperAdminTurfs = () => {
       />
       
       {/* Main Content */}
-      <div className="flex-1 lg:ml-80">
+      <div className="flex-1  lg:ml-80">
         <SuperAdminNavbar onMobileMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
         
         <main className="p-4 lg:p-8 pb-4 pt-48 lg:pt-40 min-h-screen">

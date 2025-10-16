@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
   Shield,
   Users,
@@ -53,6 +54,18 @@ const SuperAdminTurfAdmins = () => {
     avgRating: 0
   });
 
+  // Chart data for pie and bar charts
+  const pieData = [
+    { name: 'Active', value: stats.active },
+    { name: 'Pending', value: stats.pending },
+    { name: 'Blocked', value: stats.blocked }
+  ];
+  const COLORS = ['#34d399', '#fbbf24', '#ef4444'];
+  const barData = [
+    { name: 'Admins', value: stats.total },
+    { name: 'Turfs Managed', value: stats.totalTurfs }
+  ];
+
   const [newAdmin, setNewAdmin] = useState({
     name: '',
     email: '',
@@ -80,9 +93,9 @@ const SuperAdminTurfAdmins = () => {
         sortOrder: 'desc'
       };
 
-      const response = await superAdminService.getTurfAdmins(params);
-      setTurfAdmins(response.data || []);
-      setTotalPages(response.totalPages || 1);
+  const response = await superAdminService.getTurfAdmins(params);
+  setTurfAdmins(response.turfAdmins || []);
+  setTotalPages(response.totalPages || 1);
     } catch (error) {
       console.error("Error fetching turf admins:", error);
       toast.error("Failed to fetch turf admins");
@@ -166,7 +179,7 @@ const SuperAdminTurfAdmins = () => {
     const Icon = config.icon;
     
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+      <span className={`inline-flexitems-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
         <Icon className="w-3 h-3 mr-1" />
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
@@ -232,7 +245,7 @@ const SuperAdminTurfAdmins = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex  mt-20  min-h-screen bg-gray-50">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div 
@@ -298,7 +311,7 @@ const SuperAdminTurfAdmins = () => {
                   className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${token.bg} ${token.icon}`}>
+                    <div className={`p-3 rounded-lg ${token.bg} ${token.icon}`}> 
                       <Icon className="w-6 h-6" />
                     </div>
                     <span className={`text-sm font-medium ${
@@ -315,6 +328,48 @@ const SuperAdminTurfAdmins = () => {
                 </motion.div>
               );
             })}
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            {/* Pie Chart for Admin Status Distribution */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold mb-4 text-gray-800">Admin Status Distribution</h2>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Bar Chart for Admins and Turfs Managed */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold mb-4 text-gray-800">Admins & Turfs Managed</h2>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={barData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#6366f1" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Filters and Search */}
@@ -398,7 +453,7 @@ const SuperAdminTurfAdmins = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {turfAdmins.map((admin, index) => (
                     <motion.tr
-                      key={admin.id}
+                      key={admin.id || admin._id || index}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -466,15 +521,16 @@ const SuperAdminTurfAdmins = () => {
                         <div className="flex items-center">
                           <Star className="w-4 h-4 text-yellow-400 mr-1" />
                           <span className="text-sm font-medium text-gray-900">
-                            {admin.rating || 'N/A'}
+                            {admin.rating !== undefined ? admin.rating : 'N/A'}
                           </span>
                         </div>
                         <div className="text-xs text-gray-500">
-                          {admin.reviewsCount || 0} reviews
+                          {(admin.reviewsCount !== undefined ? admin.reviewsCount : 0) + ' reviews'}
                         </div>
                         <div className="flex items-center mt-1">
                           <TrendingUp className="w-3 h-3 text-green-500 mr-1" />
                           <span className="text-xs text-green-600">+{admin.growth || 0}%</span>
+                          <span className="text-xs text-green-600">+{admin.growth !== undefined ? admin.growth : 0}%</span>
                         </div>
                       </td>
 

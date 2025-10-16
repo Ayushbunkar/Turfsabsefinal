@@ -81,10 +81,10 @@ const SuperAdminRevenue = () => {
         superAdminService.getRecentTransactions(20)
       ]);
 
-      setRevenueStats(statsResponse || revenueStats);
-      setRevenueChartData(chartResponse || []);
-      setTopPerformers(topResponse || []);
-      setRecentTransactions(transResponse || []);
+  setRevenueStats(statsResponse || revenueStats);
+  setRevenueChartData(chartResponse?.revenueTrends || []);
+  setTopPerformers(topResponse?.topTurfs || []);
+  setRecentTransactions(transResponse?.transactions || []);
     } catch (error) {
       console.error("Error fetching revenue data:", error);
       // Set mock data on error
@@ -99,73 +99,6 @@ const SuperAdminRevenue = () => {
         transactionCount: 15600
       });
 
-      setRevenueChartData([
-        { name: 'Jan', revenue: 980000, bookings: 850 },
-        { name: 'Feb', revenue: 1120000, bookings: 950 },
-        { name: 'Mar', revenue: 1350000, bookings: 1150 },
-        { name: 'Apr', revenue: 1580000, bookings: 1350 },
-        { name: 'May', revenue: 1750000, bookings: 1500 },
-        { name: 'Jun', revenue: 1850000, bookings: 1620 }
-      ]);
-
-      setCategoryData([
-        { name: 'Football', value: 45, revenue: 5625000, color: '#3B82F6' },
-        { name: 'Cricket', value: 25, revenue: 3125000, color: '#10B981' },
-        { name: 'Basketball', value: 15, revenue: 1875000, color: '#F59E0B' },
-        { name: 'Tennis', value: 10, revenue: 1250000, color: '#EF4444' },
-        { name: 'Others', value: 5, revenue: 625000, color: '#8B5CF6' }
-      ]);
-
-      setTopPerformers([
-        {
-          id: 1,
-          name: "Elite Sports Arena",
-          location: "Gurgaon",
-          revenue: 425000,
-          growth: 25.4,
-          bookings: 380,
-          rating: 4.8
-        },
-        {
-          id: 2,
-          name: "Champions Ground",
-          location: "Delhi",
-          revenue: 380000,
-          growth: 18.2,
-          bookings: 340,
-          rating: 4.6
-        },
-        {
-          id: 3,
-          name: "Victory Field",
-          location: "Noida",
-          revenue: 350000,
-          growth: 22.1,
-          bookings: 315,
-          rating: 4.7
-        }
-      ]);
-
-      setRecentTransactions([
-        {
-          id: "TXN001",
-          turf: "Elite Sports Arena",
-          amount: 2500,
-          type: "booking",
-          status: "completed",
-          date: "2025-01-04",
-          paymentMethod: "UPI"
-        },
-        {
-          id: "TXN002", 
-          turf: "Champions Ground",
-          amount: 3000,
-          type: "booking",
-          status: "pending",
-          date: "2025-01-04",
-          paymentMethod: "Card"
-        }
-      ]);
     } finally {
       setLoading(false);
     }
@@ -327,40 +260,19 @@ const SuperAdminRevenue = () => {
               const Icon = card.icon;
               return (
                 <motion.div
-                  key={card.title}
+                  key={index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                  className="flex flex-col justify-between bg-white rounded-xl shadow-sm p-6 border border-gray-100"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    {(() => {
-                      const colorTokens = {
-                        blue: { bg: 'bg-blue-100', icon: 'text-blue-600' },
-                        green: { bg: 'bg-green-100', icon: 'text-green-600' },
-                        purple: { bg: 'bg-purple-100', icon: 'text-purple-600' },
-                        orange: { bg: 'bg-orange-100', icon: 'text-orange-600' },
-                        default: { bg: 'bg-gray-100', icon: 'text-gray-600' }
-                      };
-                      const token = colorTokens[card.color] || colorTokens.default;
-                      return (
-                        <div className={`p-3 rounded-lg ${token.bg} ${token.icon}`}>
-                          <Icon className="w-6 h-6" />
-                        </div>
-                      );
-                    })()}
-                    <div className="flex items-center space-x-1">
-                      {card.changeType === 'increase' ? (
-                        <ArrowUpRight className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <ArrowDownRight className="w-4 h-4 text-red-500" />
-                      )}
-                      <span className={`text-sm font-medium ${
-                        card.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {card.change}
-                      </span>
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center bg-${card.color}-100`}>
+                      <Icon className={`w-7 h-7 text-${card.color}-600`} />
                     </div>
+                    <span className={`text-sm font-semibold ${card.changeType === "increase" ? "text-green-600" : "text-red-600"}`}>
+                      {card.change}
+                    </span>
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-gray-900 mb-1">{card.value}</h3>
