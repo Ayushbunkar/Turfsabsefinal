@@ -27,7 +27,7 @@ const UserPayments = () => {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.get("/payments/user");
+        const { data } = await api.get("/api/payments/user");
         setPayments(data || []);
       } catch {
         toast.error("Failed to fetch payments. Showing demo data.");
@@ -79,6 +79,18 @@ const UserPayments = () => {
 
   const downloadReceipt = (p) => toast.success(`Downloading receipt for ${p.transactionId}`);
 
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/api/payments/user');
+      setPayments(data || []);
+    } catch (err) {
+      toast.error('Failed to refresh payments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!user) return <div className="flex items-center justify-center h-screen">Please log in to view payments</div>;
 
   return (
@@ -92,7 +104,7 @@ const UserPayments = () => {
 
             {/* Summary */}
             <div className="grid md:grid-cols-3 gap-6 mb-8">
-              {[["Total Spent", `9${stats.total.toLocaleString()}`, CreditCard, "green"],
+              {[["Total Spent", `₹${stats.total.toLocaleString()}`, CreditCard, "green"],
                 ["Completed", stats.success, CheckCircle, "blue"],
                 ["This Month", stats.month, Calendar, "purple"]].map(([t, v, I, c]) => {
                 const map = {
@@ -125,12 +137,16 @@ const UserPayments = () => {
                   className="pl-10 pr-3 py-2 w-full rounded-lg border dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              {[["Status", status, setStatus, ["all", "completed", "pending", "failed", "refunded"]],
-                ["Date", range, setRange, ["all", "week", "month", "year"]]].map(([l, v, fn, opts]) => (
-                <select key={l} value={v} onChange={(e) => fn(e.target.value)} className="px-4 py-2 rounded-lg border dark:bg-gray-700 dark:text-white">
-                  {opts.map((o) => <option key={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}
-                </select>
-              ))}
+              {/** left controls */}
+              <div className="flex items-center gap-2">
+                <button onClick={refresh} className="px-3 py-2 bg-gray-100 rounded">Refresh</button>
+              </div>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-4 py-2 rounded-lg border dark:bg-gray-700 dark:text-white">
+                {['all', 'completed', 'pending', 'failed', 'refunded'].map((o) => <option key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}
+              </select>
+              <select value={range} onChange={(e) => setRange(e.target.value)} className="px-4 py-2 rounded-lg border dark:bg-gray-700 dark:text-white">
+                {['all', 'week', 'month', 'year'].map((o) => <option key={o} value={o}>{o[0].toUpperCase() + o.slice(1)}</option>)}
+              </select>
             </Card>
 
             {/* Payments */}

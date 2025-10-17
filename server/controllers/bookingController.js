@@ -9,6 +9,7 @@ import { sendEmail } from "../utils/email.js";
 // 🟢 USER: Create Booking
 export const createBooking = async (req, res) => {
   try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
     const { turfId, slot, date } = req.body;
 
     const turf = await Turf.findById(turfId);
@@ -26,8 +27,8 @@ export const createBooking = async (req, res) => {
 
     if (slotConflict) {
       const base = { message: "Slot already reserved or booked", bookingId: slotConflict._id };
-      const isOwner = req.user && String(slotConflict.user) === String(req.user._id);
-      const isAdmin = req.user && (req.user.role === 'admin' || req.user.role === 'superadmin');
+  const isOwner = req.user ? String(slotConflict.user) === String(req.user?._id) : false;
+      const isAdmin = req.user?.role === 'admin' || req.user?.role === 'superadmin';
       if (isAdmin || isOwner) {
         const reserver = await User.findById(slotConflict.user).select('name email').lean();
         return res.status(409).json({ ...base, reserver: reserver ? { name: reserver.name, email: reserver.email } : undefined });
@@ -36,7 +37,7 @@ export const createBooking = async (req, res) => {
     }
 
     const booking = await Booking.create({
-      user: req.user._id,
+      user: req.user?._id,
       turf: turfId,
       slot,
       date,
@@ -51,9 +52,9 @@ export const createBooking = async (req, res) => {
   res.status(201).json({ message: "Booking created", booking, expiresAt: expiresAt.toISOString() });
     // send a tentative email that booking was created (optional)
     await sendEmail({
-      to: req.user.email,
+      to: req.user?.email,
       subject: "Booking Created",
-      text: `Hi ${req.user.name}, your booking at ${turf.name} is created for ${date} ${slot.startTime}-${slot.endTime}. Complete payment to confirm.`,
+      text: `Hi ${req.user?.name || 'User'}, your booking at ${turf?.name || 'the turf'} is created for ${date} ${slot.startTime}-${slot.endTime}. Complete payment to confirm.`,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -63,7 +64,8 @@ export const createBooking = async (req, res) => {
 // 🔵 USER: Get My Bookings
 export const getMyBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({ user: req.user._id })
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+    const bookings = await Booking.find({ user: req.user?._id })
       .populate("turf", "name location pricePerHour")
       .sort({ createdAt: -1 });
 
@@ -76,7 +78,8 @@ export const getMyBookings = async (req, res) => {
 // 🟣 ADMIN: Get Bookings for My Turfs
 export const getAdminBookings = async (req, res) => {
   try {
-    const turfs = await Turf.find({ admin: req.user._id });
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+  const turfs = await Turf.find({ admin: req.user?._id });
     const turfIds = turfs.map((t) => t._id);
 
     const bookings = await Booking.find({ turf: { $in: turfIds } })
@@ -93,14 +96,15 @@ export const getAdminBookings = async (req, res) => {
 // 🔴 ADMIN/SUPERADMIN: Update Booking Status
 export const updateBookingStatus = async (req, res) => {
   try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
     const { status } = req.body; // confirmed/cancelled
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ message: "Booking not found" });
 
     // Admin can update only their turf bookings
-    if (req.user.role === "admin") {
+    if (req.user?.role === "admin") {
       const turf = await Turf.findById(booking.turf);
-      if (turf.admin.toString() !== req.user._id.toString())
+      if (turf.admin.toString() !== req.user?._id.toString())
         return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -160,6 +164,21 @@ export const createPaymentOrder = async (req, res) => {
       receipt: booking._id.toString(),
     };
 
+    // If running in development without real Razorpay keys, return a synthetic order
+    const runningInProd = process.env.NODE_ENV === 'production';
+    const hasKeys = !!process.env.RAZORPAY_KEY_ID && !!process.env.RAZORPAY_KEY_SECRET;
+    if (!runningInProd || !hasKeys) {
+      // synthetic order object used for local testing
+      const order = {
+        id: `dev_order_${booking._id}`,
+        amount: amount,
+        currency: 'INR',
+        receipt: booking._id.toString(),
+        __dev: true,
+      };
+      return res.json(order);
+    }
+
     const order = await razorpay.orders.create(options);
     res.json(order);
   } catch (error) {
@@ -170,6 +189,7 @@ export const createPaymentOrder = async (req, res) => {
 // Verify Payment
 export const verifyPayment = async (req, res) => {
   try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId } =
       req.body;
 
@@ -183,20 +203,64 @@ export const verifyPayment = async (req, res) => {
     if (expectedSignature === razorpay_signature) {
       const booking = await Booking.findById(bookingId).populate('turf');
       if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+      // persist payment details inside booking
+      booking.payment = {
+        amount: booking.price,
+        method: 'Razorpay',
+        transactionId: razorpay_payment_id,
+        providerOrderId: razorpay_order_id,
+        providerPaymentId: razorpay_payment_id,
+        signature: razorpay_signature,
+        status: 'completed',
+        date: new Date()
+      };
+
       booking.status = "paid"; // mark as paid
       await booking.save();
 
       // send confirmation email
       await sendEmail({
-        to: req.user.email,
+        to: req.user?.email,
         subject: "Payment Successful",
-        text: `Hi ${req.user.name}, your payment of ₹${booking.price} for turf ${booking.turf.name} was successful. Your booking is confirmed for ${booking.date} ${booking.slot.startTime}-${booking.slot.endTime}`,
+        text: `Hi ${req.user?.name || 'User'}, your payment of ₹${booking.price} for turf ${booking.turf?.name || 'the turf'} was successful. Your booking is confirmed for ${booking.date} ${booking.slot.startTime}-${booking.slot.endTime}`,
       });
 
       res.json({ message: "Payment verified & booking confirmed", booking });
     } else {
       res.status(400).json({ message: "Payment verification failed" });
     }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET /api/payments/user - return payment history for the logged-in user
+export const getUserPayments = async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+    // find bookings that have payment info or status paid
+    const bookings = await Booking.find({ user: req.user?._id, $or: [{ status: 'paid' }, { 'payment.status': 'completed' }] })
+      .populate('turf', 'name')
+      .sort({ 'payment.date': -1, createdAt: -1 })
+      .lean();
+
+    // shape the data for client
+    const payments = bookings.map((b) => ({
+      _id: b._id,
+      amount: b.payment?.amount || b.price,
+      status: b.payment?.status === 'completed' || b.status === 'paid' ? 'completed' : (b.payment?.status || 'pending'),
+      paymentMethod: b.payment?.method || 'Unknown',
+      transactionId: b.payment?.transactionId || b._id,
+      date: b.payment?.date || b.updatedAt || b.createdAt,
+      booking: {
+        turfName: b.turf?.name,
+        date: b.date,
+        timeSlot: b.slot?.startTime ? `${b.slot.startTime} - ${b.slot.endTime}` : ''
+      }
+    }));
+
+    res.json(payments);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -211,7 +275,7 @@ export const releasePendingBooking = async (req, res) => {
     if (!booking) return res.status(404).json({ message: "Booking not found" });
 
     // Only admins or superadmins can release pending bookings
-    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'superadmin')) {
+    if (!req.user || (req.user?.role !== 'admin' && req.user?.role !== 'superadmin')) {
       return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -238,7 +302,7 @@ export const releasePendingBooking = async (req, res) => {
 export const cleanupPendingBookings = async (req, res) => {
   try {
     // only allow superadmin for cleanup
-    if (!req.user || req.user.role !== 'superadmin') return res.status(403).json({ message: 'Not authorized' });
+    if (!req.user || req.user?.role !== 'superadmin') return res.status(403).json({ message: 'Not authorized' });
     const pendingTTL = Number(process.env.PENDING_BOOKING_TTL) || 900;
     const cutoff = new Date(Date.now() - pendingTTL * 1000);
     const result = await Booking.deleteMany({ status: 'pending', createdAt: { $lt: cutoff } });
@@ -252,7 +316,7 @@ export const cleanupPendingBookings = async (req, res) => {
 export const getAuditLogs = async (req, res) => {
   try {
     // only admin/superadmin
-    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'superadmin')) return res.status(403).json({ message: 'Not authorized' });
+    if (!req.user || (req.user?.role !== 'admin' && req.user?.role !== 'superadmin')) return res.status(403).json({ message: 'Not authorized' });
     const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(200).lean();
     res.json(logs);
   } catch (e) { res.status(500).json({ message: e.message }); }

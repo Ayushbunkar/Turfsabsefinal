@@ -12,14 +12,16 @@ function Card({ className = "", children }) {
   );
 }
 import toast from "react-hot-toast";
-import axios from "axios";
+import api from '../../../config/Api';
+import { useLocale } from '../../../context/LocaleContext';
 
-const ToggleSwitch = ({ enabled, onChange }) => (
+const ToggleSwitch = ({ enabled, onChange, disabled }) => (
   <button
-    onClick={() => onChange(!enabled)}
+    onClick={() => !disabled && onChange(!enabled)}
+    disabled={disabled}
     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
       enabled ? "bg-green-600" : "bg-gray-200 dark:bg-gray-600"
-    }`}
+    } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
   >
     <span
       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -29,13 +31,13 @@ const ToggleSwitch = ({ enabled, onChange }) => (
   </button>
 );
 
-const SettingToggle = ({ label, desc, value, onChange }) => (
+const SettingToggle = ({ label, desc, value, onChange, disabled }) => (
   <div className="flex items-center justify-between">
     <div>
       <h3 className="font-medium text-gray-900 dark:text-white">{label}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400">{desc}</p>
     </div>
-    <ToggleSwitch enabled={value} onChange={onChange} />
+    <ToggleSwitch enabled={value} onChange={onChange} disabled={disabled} />
   </div>
 );
 
@@ -60,8 +62,10 @@ const SettingSelect = ({ label, value, onChange, options }) => (
 
 export default function UserSettings() {
   const { user } = useAuth();
+  const { setLanguage, setCurrency } = useLocale();
   const [darkMode, setDarkMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMap, setLoadingMap] = useState({});
   const [settings, setSettings] = useState({
     emailNotifications: true,
     smsNotifications: false,
@@ -84,29 +88,46 @@ export default function UserSettings() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get("http://localhost:4500/api/users/settings", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        setLoading(true);
+        const res = await api.get('/api/user/settings');
         if (res.data) setSettings((prev) => ({ ...prev, ...res.data }));
-      } catch {}
+      } catch (e) {
+        console.warn('Failed to fetch settings', e?.message || e);
+        toast.error('Failed to load settings');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchSettings();
   }, []);
 
   const updateSettings = async (key, value) => {
-    setLoading(true);
+    const prev = settings[key];
+    // optimistic UI update
+    setSettings((p) => ({ ...p, [key]: value }));
+    setLoadingMap((m) => ({ ...m, [key]: true }));
     try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        "http://localhost:4500/api/users/settings",
-        { [key]: value },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSettings((prev) => ({ ...prev, [key]: value }));
-      toast.success("Settings updated successfully!");
-    } catch {
-      setSettings((prev) => ({ ...prev, [key]: value }));
+      const res = await api.patch('/api/user/settings', { [key]: value });
+      // server returns merged settings
+      if (res.data) setSettings((p) => ({ ...p, ...res.data }));
+      toast.success('Settings updated successfully!');
+    } catch (e) {
+      // rollback
+      setSettings((p) => ({ ...p, [key]: prev }));
+      toast.error(e?.response?.data?.message || 'Failed to update setting');
+    } finally {
+      setLoadingMap((m) => ({ ...m, [key]: false }));
+    }
+  };
+
+  const refreshSettings = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/user/settings');
+      if (res.data) setSettings((prev) => ({ ...prev, ...res.data }));
+      toast.success('Settings refreshed');
+    } catch (e) {
+      toast.error('Failed to refresh settings');
     } finally {
       setLoading(false);
     }
@@ -129,7 +150,12 @@ export default function UserSettings() {
         <Sidebar user={user} onToggleDark={() => setDarkMode(!darkMode)} darkMode={darkMode} />
         <main className="flex-1 ml-0 lg:ml-64 p-4 lg:p-8 pt-48 pb-8 min-h-screen">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Settings</h1>
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+              <div>
+                <button onClick={refreshSettings} className="px-3 py-2 bg-gray-100 rounded">Refresh</button>
+              </div>
+            </div>
 
             {/* Notification Settings */}
             <Card className="p-6 mb-6">
@@ -152,6 +178,8 @@ export default function UserSettings() {
                     desc={desc}
                     value={settings[key]}
                     onChange={(val) => updateSettings(key, val)}
+                    // disable while saving
+                    disabled={!!loadingMap[key]}
                   />
                 ))}
               </div>
@@ -201,7 +229,11 @@ export default function UserSettings() {
                 <SettingSelect
                   label="Language"
                   value={settings.language}
-                  onChange={(val) => updateSettings("language", val)}
+                  onChange={(val) => {
+                    // update local provider immediately for live UI change
+                    try { setLanguage(val); } catch (e) {}
+                    updateSettings("language", val);
+                  }}
                   options={[
                     { value: "en", label: "English" },
                     { value: "hi", label: "हिन्दी" },
@@ -223,7 +255,10 @@ export default function UserSettings() {
                 <SettingSelect
                   label="Currency"
                   value={settings.currency}
-                  onChange={(val) => updateSettings("currency", val)}
+                  onChange={(val) => {
+                    try { setCurrency(val); } catch (e) {}
+                    updateSettings("currency", val);
+                  }}
                   options={[
                     { value: "INR", label: "₹ Indian Rupee" },
                     { value: "USD", label: "$ US Dollar" },

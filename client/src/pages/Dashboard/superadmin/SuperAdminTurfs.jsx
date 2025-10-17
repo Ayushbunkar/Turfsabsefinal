@@ -82,8 +82,25 @@ const SuperAdminTurfs = () => {
       };
 
   const response = await superAdminService.getAllTurfs(params);
-  setTurfs(response.turfs || []);
-  setTotalPages((response.pagination && response.pagination.totalPages) || 1);
+  const rawTurfs = response?.turfs || [];
+  const normalized = rawTurfs.map((t) => ({
+    id: t.id || t._id || (t._id && t._id.toString()),
+    name: t.name || '',
+    location: t.location || t.address || (t.admin && t.admin.location) || '',
+    category: t.category || t.sport || 'general',
+    pricePerHour: t.pricePerHour ?? t.price ?? 0,
+    status: t.status || (t.isApproved ? 'active' : 'pending') || 'pending',
+    rating: t.rating ?? 0,
+    totalBookings: t.totalBookings ?? t.bookingsCount ?? 0,
+    revenue: t.revenue ?? t.totalRevenue ?? 0,
+    owner: t.owner || (t.admin ? { name: t.admin.name, email: t.admin.email, phone: t.admin.phone } : {}),
+    amenities: t.amenities || [],
+    images: t.images || [],
+    createdAt: t.createdAt,
+    lastBooking: t.lastBooking || null
+  }));
+  setTurfs(normalized);
+  setTotalPages(response.pagination?.totalPages || response.pagination?.total || 1);
     } catch (error) {
       console.error("Error fetching turfs:", error);
       // Set mock data on error
@@ -132,7 +149,16 @@ const SuperAdminTurfs = () => {
   const fetchStats = async () => {
     try {
       const response = await superAdminService.getTurfStats();
-      setStats(response || stats);
+      const mapped = {
+        total: response?.totalTurfs ?? response?.total ?? stats.total,
+        active: response?.activeTurfs ?? response?.active ?? stats.active,
+        pending: response?.pendingTurfs ?? response?.pending ?? stats.pending,
+        blocked: response?.blockedTurfs ?? stats.blocked ?? 0,
+        totalRevenue: response?.totalRevenue ?? stats.totalRevenue ?? 0,
+        avgRating: response?.avgRating ?? stats.avgRating ?? 0,
+        totalBookings: response?.totalBookings ?? stats.totalBookings ?? 0
+      };
+      setStats(mapped);
     } catch (error) {
       console.error("Error fetching stats:", error);
       // Use mock data on error
@@ -150,7 +176,8 @@ const SuperAdminTurfs = () => {
 
   const handleStatusUpdate = async (turfId, status, reason = '') => {
     try {
-      await superAdminService.updateTurfStatus(turfId, status, reason);
+      const action = status === 'active' ? 'approve' : status === 'blocked' ? 'block' : status;
+      await superAdminService.updateTurfStatus(turfId, action, reason);
       toast.success(`Turf status updated to ${status}`);
       fetchTurfs();
       fetchStats();

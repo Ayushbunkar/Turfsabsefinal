@@ -30,12 +30,19 @@ function EditProfileModal({ open, onClose, user, token, onProfileUpdate }) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { data } = await api.patch(
-        "/users/me",
-        { name, email },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      onProfileUpdate(data.user);
+      const { data } = await api.patch("/api/user/me", { name, email });
+      const updated = data.user;
+      // if email changed, force re-login for security
+      if (updated.email && user?.email && updated.email !== user.email) {
+        // clear token and user, then navigate to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        onClose();
+        toast.success('Email updated — please sign in again');
+        window.location.href = '/login';
+        return;
+      }
+      onProfileUpdate(updated);
       onClose();
       toast.success("Profile updated!");
     } catch (err) {
@@ -77,7 +84,7 @@ function EditProfileModal({ open, onClose, user, token, onProfileUpdate }) {
 }
 
 export default function UserDashboard() {
-  const { user, login } = useAuth();
+  const { user, login, updateUser } = useAuth();
   const [darkMode, setDarkMode] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -100,7 +107,8 @@ export default function UserDashboard() {
   }, [token]);
 
   const handleProfileUpdate = (updatedUser) => {
-    login(updatedUser);
+    // update only the user object in context (do not touch token)
+    updateUser(updatedUser);
     localStorage.setItem("user", JSON.stringify(updatedUser));
   };
 

@@ -13,7 +13,7 @@ export const createTurf = async (req, res) => {
     console.log('Authorization header present?', !!req.headers.authorization);
     console.log('x-access-token header present?', !!req.headers['x-access-token']);
     console.log('Cookie token present?', !!req.cookies?.token);
-    console.log('req.user:', req.user ? { id: req.user._id, role: req.user.role, email: req.user.email } : null);
+  console.log('req.user:', req.user ? { id: req.user._id, role: req.user?.role || null, email: req.user?.email } : null);
     console.log('req.file:', req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size } : null);
     console.log('req.body keys:', Object.keys(req.body || {}));
 
@@ -29,7 +29,7 @@ export const createTurf = async (req, res) => {
     let images = [];
 
     // Auto-approve turfs created by admin or superadmin so they're visible immediately
-    const autoApprove = req.user && (req.user.role === 'admin' || req.user.role === 'superadmin');
+  const autoApprove = req.user ? (req.user?.role === 'admin' || req.user?.role === 'superadmin') : false;
 
     const turf = await Turf.create({
       name,
@@ -53,7 +53,7 @@ export const createTurf = async (req, res) => {
       imageUrl = `${baseUrl}${imageUrl}`;
     }
   }
-  res.status(201).json({ message: "Turf added successfully!", turf, imageUrl });
+    res.status(201).json({ message: "Turf added successfully!", turf, imageUrl });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -75,7 +75,8 @@ export const getAllTurfs = async (req, res) => {
 // 🟣 GET MY TURFS (Admin Only)
 export const getMyTurfs = async (req, res) => {
   try {
-    const turfs = await Turf.find({ admin: req.user._id });
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+    const turfs = await Turf.find({ admin: req.user?._id });
     res.json(turfs);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -99,7 +100,8 @@ export const updateTurf = async (req, res) => {
     const turf = await Turf.findById(req.params.id);
     if (!turf) return res.status(404).json({ message: "Turf not found" });
 
-    if (turf.admin.toString() !== req.user._id.toString()) {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+    if (turf.admin.toString() !== req.user?._id.toString()) {
       return res.status(403).json({ message: "Not authorized to edit this turf" });
     }
 
@@ -119,7 +121,8 @@ export const deleteTurf = async (req, res) => {
     const turf = await Turf.findById(req.params.id);
     if (!turf) return res.status(404).json({ message: "Turf not found" });
 
-    if (turf.admin.toString() !== req.user._id.toString()) {
+    if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+    if (turf.admin.toString() !== req.user?._id.toString()) {
       return res.status(403).json({ message: "Not authorized to delete this turf" });
     }
 
@@ -144,10 +147,17 @@ export const approveTurf = async (req, res) => {
     res.json({ message: "Turf approved successfully", turf });
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }await sendEmail({
-  to: turf.admin?.email,
-  subject: "Turf Approved",
-  text: `Hi ${turf?.admin?.name || 'Admin'}, your turf has been approved by SuperAdmin.`,
-});
-
+  }
+  // Send notification email asynchronously (non-blocking)
+  try {
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      await sendEmail({
+        to: turf.admin?.email,
+        subject: "Turf Approved",
+        text: `Hi ${turf?.admin?.name || 'Admin'}, your turf has been approved by SuperAdmin.`,
+      });
+    }
+  } catch (mailErr) {
+    console.warn('approveTurf email failed:', mailErr?.message || mailErr);
+  }
 };

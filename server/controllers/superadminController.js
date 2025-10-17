@@ -7,6 +7,41 @@ try {
   SupportTicket = null;
 }
 
+// Update general user fields (name, email, phone, address)
+export async function updateUser(req, res) {
+  try {
+    const { id } = req.params;
+    const payload = req.body || {};
+    if (!id) return res.status(400).json({ error: 'User id required' });
+
+    const allowed = ['name', 'email', 'phone', 'address', 'status'];
+    const updates = {};
+    Object.keys(payload).forEach(k => {
+      if (allowed.includes(k)) updates[k] = payload[k];
+    });
+
+    if (updates.email) updates.email = String(updates.email).trim().toLowerCase();
+
+    const user = await User.findByIdAndUpdate(id, updates, { new: true }).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const safeUser = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      role: user?.role,
+      status: user.status,
+      updatedAt: user.updatedAt
+    };
+    res.json({ user: safeUser });
+  } catch (err) {
+    console.error('updateUser error:', err);
+    res.status(500).json({ error: 'Failed to update user', details: err.message });
+  }
+}
+
 export async function getSupportTickets(req, res) {
   try {
     if (SupportTicket) {
@@ -516,6 +551,61 @@ export async function getAllUsers(req, res) {
   }
 }
 
+// Fetch a single user by id (superadmin)
+export async function getUserById(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'User id required' });
+    const user = await User.findById(id).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const safeUser = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || '',
+      address: user.address || '',
+      role: user?.role,
+      status: user.status || 'pending',
+      turfsCount: user.turfsCount || 0,
+      totalRevenue: user.totalRevenue || 0,
+      totalBookings: user.totalBookings || 0,
+      rating: user.rating || 0,
+      reviewsCount: user.reviewsCount || 0,
+      growth: user.growth || 0,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+
+    res.json({ user: safeUser });
+  } catch (err) {
+    console.error('getUserById error:', err);
+    res.status(500).json({ error: 'Failed to fetch user', details: err.message });
+  }
+}
+
+// Return a small list of recent users (admin-only helper)
+export async function getRecentUsers(req, res) {
+  try {
+    const limit = Math.min(100, parseInt(req.query.limit || '10'));
+    const usersRaw = await User.find({}).sort({ createdAt: -1 }).limit(limit).select('-password');
+    const users = usersRaw.map(u => ({
+      id: u._id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone || '',
+      address: u.address || u.location || '',
+  role: u?.role,
+      status: u.status || 'pending',
+      createdAt: u.createdAt
+    }));
+    res.json({ users });
+  } catch (err) {
+    console.error('getRecentUsers error:', err);
+    res.status(500).json({ error: 'Failed to fetch recent users', details: err.message });
+  }
+}
+
 // Fetch user statistics for superadmin dashboard
 export async function getUserStatistics(req, res) {
   try {
@@ -534,6 +624,121 @@ export async function getUserStatistics(req, res) {
     res.status(500).json({ error: 'Failed to fetch user statistics', details: err.message });
   }
 }
+
+// Delete a user (superadmin)
+export async function deleteUser(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'User id required' });
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Prevent deleting the primary superadmin accidentally (optional)
+  if (user?.role === 'superadmin') {
+      // Allow deletion only if there are other superadmins
+      const otherSuperadmins = await User.countDocuments({ role: 'superadmin', _id: { $ne: id } });
+      if (otherSuperadmins === 0) return res.status(400).json({ error: 'Cannot delete the last superadmin' });
+    }
+
+    // Perform deletion - consider cascading deletes if required (bookings, turfs, etc.)
+    await User.findByIdAndDelete(id);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete user', details: err.message });
+  }
+}
+
+// Create a new Turfadmin by superadmin (generates a password and optionally emails it)
+export async function createTurfAdminBySuperAdmin(req, res) {
+  try {
+    const { name, email, phone, address } = req.body || {};
+    if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+
+    // normalize email
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existing = await User.findOne({ email: normalizedEmail });
+    if (existing) return res.status(400).json({ error: 'Email already registered' });
+
+    // Generate a secure random password (12 chars alphanumeric)
+    const raw = crypto.randomBytes(9).toString('base64');
+    const generatedPassword = raw.replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || Math.random().toString(36).slice(2, 14);
+
+    const hashed = await bcrypt.hash(generatedPassword, 10);
+
+    const user = await User.create({
+      name,
+      email: normalizedEmail,
+      phone: phone || '',
+      address: address || '',
+      password: hashed,
+      role: 'Turfadmin',
+      status: 'active'
+    });
+
+    // Try to email the password to the new user; don't fail creation if email fails
+    try {
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        await sendEmail({
+          to: normalizedEmail,
+          subject: 'Your Turf Admin account has been created',
+          text: `Hello ${name},\n\nAn account for you has been created by the Super Admin.\nEmail: ${normalizedEmail}\nPassword: ${generatedPassword}\n\nPlease log in and change your password.`,
+        });
+      }
+    } catch (mailErr) {
+      console.warn('Failed to send createTurfAdmin email:', mailErr?.message || mailErr);
+    }
+
+    const safeUser = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      role: user?.role,
+      createdAt: user.createdAt
+    };
+
+    // Do not return the generated password in the API response for security.
+    // The password is emailed to the user when mail credentials are available.
+    res.json({ user: safeUser });
+  } catch (err) {
+    console.error('createTurfAdminBySuperAdmin error:', err);
+    res.status(500).json({ error: 'Failed to create turf admin', details: err.message });
+  }
+}
+
+// Update a user's status (used by superadmin to approve/block/suspend turf admins)
+export async function updateUserStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body || {};
+    if (!id) return res.status(400).json({ error: 'User id required' });
+    if (!status) return res.status(400).json({ error: 'Status is required' });
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.status = status;
+    // Optionally log reason somewhere; for now attach to user.lastStatusChangeReason
+    if (reason) user.lastStatusChangeReason = reason;
+    await user.save();
+
+    const safeUser = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user?.role,
+      status: user.status,
+      updatedAt: user.updatedAt
+    };
+    res.json({ user: safeUser });
+  } catch (err) {
+    console.error('updateUserStatus error:', err);
+    res.status(500).json({ error: 'Failed to update user status', details: err.message });
+  }
+}
+
 // System metrics for superadmin dashboard
 import os from 'os';
 import mongoose from 'mongoose';
@@ -600,17 +805,29 @@ export async function getRecentActivities(req, res) {
         .sort({ createdAt: -1 })
         .limit(limit);
     }
-    res.json({ activities: activities || [] });
+    // Normalize activities to avoid any runtime errors when actor is null/missing
+    const normalized = (activities || []).map(a => ({
+      id: a._id,
+      action: a.action,
+      actor: a.actor ? { id: a.actor._id || a.actor.id, name: a.actor.name, email: a.actor.email, role: a.actor.role } : null,
+      targetBooking: a.targetBooking || null,
+      meta: a.meta || {},
+      createdAt: a.createdAt
+    }));
+    res.json({ activities: normalized });
   } catch (err) {
     res.json({ activities: [] }); // Always return an array, never error
   }
 }
 
 import User from '../models/User.js';
+import AuditLog from '../models/AuditLog.js';
 import bcrypt from 'bcryptjs';
 import Turf from '../models/Turf.js';
 import Booking from '../models/Booking.js';
 import Settings from '../models/Settings.js';
+import { sendEmail } from '../utils/email.js';
+import crypto from 'crypto';
 
 // Helper: ensure a single settings document exists and return it
 async function getOrCreateSettings() {

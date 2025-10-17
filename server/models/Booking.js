@@ -7,8 +7,19 @@ const bookingSchema = new mongoose.Schema(
     slot: { startTime: String, endTime: String },
     date: { type: String, required: true },
     price: { type: Number, required: true },
-    // allow 'pending' -> 'paid' lifecycle
-    status: { type: String, enum: ["pending", "confirmed", "paid", "cancelled"], default: "pending" },
+      // allow 'pending' -> 'paid' lifecycle
+      status: { type: String, enum: ["pending", "confirmed", "paid", "cancelled"], default: "pending" },
+      // payment information stored on verification
+      payment: {
+        amount: { type: Number },
+        method: { type: String },
+        transactionId: { type: String },
+        providerOrderId: { type: String },
+        providerPaymentId: { type: String },
+        signature: { type: String },
+        status: { type: String, enum: ["pending", "completed", "failed"], default: "pending" },
+        date: { type: Date }
+      }
   },
   { timestamps: true }
 );

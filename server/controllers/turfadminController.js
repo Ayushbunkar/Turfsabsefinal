@@ -5,8 +5,10 @@ import User from '../models/User.js';
 // Turf Admin Analytics
 export async function getTurfAdminAnalytics(req, res) {
 	try {
+		// Ensure authenticated
+		if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 		// Only fetch analytics for turfs managed by this admin
-		const adminId = req.user._id;
+		const adminId = req.user?._id;
 		const turfs = await Turf.find({ admin: adminId });
 		const turfIds = turfs.map(t => t._id);
 		// Bookings for these turfs
@@ -46,7 +48,8 @@ export async function getTurfAdminAnalytics(req, res) {
 // Turf Admin Dashboard
 export async function getTurfAdminDashboard(req, res) {
 	try {
-		const adminId = req.user._id;
+		if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+		const adminId = req.user?._id;
 		const turfs = await Turf.find({ admin: adminId });
 		res.json({ turfs });
 	} catch (err) {

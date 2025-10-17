@@ -11,6 +11,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import superadminRoutes from './routes/superadminRoutes.js';
 import turfadminRoutes from './routes/turfadminRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/api/analytics', analyticsRoutes);
 
 app.use('/api/superadmin', superadminRoutes);
 app.use('/api/turfadmin', turfadminRoutes);
+app.use('/api/user', userRoutes);
 // Direct superadmin endpoint for legacy/frontend compatibility
 app.use('/superadmin', superadminRoutes);
 

@@ -89,6 +89,7 @@ import SystemAnalytics from "./pages/Dashboard/superadmin/SystemAnalytics";
 
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { LocaleProvider } from "./context/LocaleContext";
 
 const App = () => {
   // === AUTH HELPERS ===
@@ -103,8 +104,9 @@ const App = () => {
 
   return (
     <AuthProvider>
-      <SocketProvider>
-        <Router>
+      <LocaleProvider>
+        <SocketProvider>
+          <Router>
           <Navbar />
           <div className="pt-16">
             <Suspense
@@ -135,6 +137,14 @@ const App = () => {
                 />
 
                 {/* === USER DASHBOARD ROUTES === */}
+                <Route
+                  path="/dashboard/user"
+                  element={
+                    <ProtectedRoute role="user">
+                      <UserDashboard />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/dashboard/user/my-bookings"
                   element={
@@ -355,8 +365,9 @@ const App = () => {
 
           {/* Hide footer for dashboard paths */}
           <FooterVisibility />
-        </Router>
-      </SocketProvider>
+          </Router>
+        </SocketProvider>
+      </LocaleProvider>
     </AuthProvider>
   );
 };

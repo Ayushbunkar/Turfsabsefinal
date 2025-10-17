@@ -8,6 +8,8 @@ import {
   Calendar,
 } from 'lucide-react';
 import api from '../config/Api';
+import usePrice from '../hooks/usePrice';
+import { useTranslation } from 'react-i18next';
 
 // Inline SVG placeholder as data URI to avoid external network dependency (via.placeholder.com can fail)
 const PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
@@ -39,8 +41,8 @@ export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
     return `${base}/${src}`;
   };
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(price);
+  const { formatted: formattedPrice } = usePrice(turf.pricePerHour || 0);
+  const { t } = useTranslation();
 
   return (
     <motion.div
@@ -69,7 +71,7 @@ export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
         </div>
 
         {!turf.isApproved && (
-          <div className="absolute top-3 right-3 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Pending</div>
+          <div className="absolute top-3 right-3 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">{t('booking.pending') || 'Pending'}</div>
         )}
 
         <div className="absolute bottom-4 left-4">
@@ -94,7 +96,7 @@ export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
             <span className="text-sm text-gray-700">{sportLabels[turf.sportType] || turf.sportType}</span>
           </div>
           <div className="flex items-center">
-            <span className="text-lg font-semibold text-green-600">{formatPrice(turf.pricePerHour)} / hour</span>
+            <span className="text-lg font-semibold text-green-600">{formattedPrice} / hour</span>
           </div>
         </div>
 
@@ -117,10 +119,10 @@ export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
 
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
           <div>
-            <div className="text-green-600 font-bold">{formatPrice(turf.pricePerHour)}</div>
+            <div className="text-green-600 font-bold">{formattedPrice}</div>
             <div className="text-xs text-gray-500">/ hour</div>
           </div>
-          <button onClick={onBook} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">Book</button>
+          <button onClick={onBook} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">{t('booking.book') || 'Book'}</button>
         </div>
       </div>
     </motion.div>

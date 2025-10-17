@@ -27,20 +27,43 @@ const TurfAdminManagement = () => {
   const perPage = 10;
 
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setAdmins([
-        {
-          _id: "1", name: "John Smith", email: "john@turfowner.com", phone: "+1234567890",
-          status: "approved", location: "New York", metrics: { turfsManaged: 5, totalRevenue: 45600, avgRating: 4.8 }
-        },
-        {
-          _id: "2", name: "Sarah Johnson", email: "sarah@sportsarena.com", phone: "+1234567891",
-          status: "pending", location: "Los Angeles", metrics: { turfsManaged: 0, totalRevenue: 0, avgRating: 0 }
-        }
-      ]);
-      setLoading(false);
-    }, 300);
+    // Fetch real turf admins from the super admin service
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        // try both fetch methods available in service
+        const data = await (superAdminService?.fetchTurfAdmins ? superAdminService.fetchTurfAdmins() : superAdminService.getTurfAdmins());
+        // service may return array or { turfAdmins: [], pagination }
+        let list = [];
+        if (Array.isArray(data)) list = data;
+        else if (data?.turfAdmins) list = data.turfAdmins;
+        else if (data?.length) list = data;
+
+        // normalize items to have metrics object and safe fields
+        const normalized = list.map(item => ({
+          _id: item._id || item.id || item._id,
+          name: item.name || item.fullName || item.email || 'Unknown',
+          email: item.email || '',
+          phone: item.phone || '',
+          status: item.status || 'pending',
+          location: item.location || item.address || '',
+          metrics: {
+            turfsManaged: Number(item.turfsCount ?? item.metrics?.turfsManaged ?? 0) || 0,
+            totalRevenue: Number(item.totalRevenue ?? item.metrics?.totalRevenue ?? 0) || 0,
+            avgRating: Number(item.avgRating ?? item.metrics?.avgRating ?? 0) || 0
+          }
+        }));
+
+        if (mounted) setAdmins(normalized);
+      } catch (err) {
+        console.error('Failed to fetch turf admins', err);
+        if (mounted) setAdmins([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const handleStatus = (id, newStatus) => {
@@ -62,7 +85,7 @@ const TurfAdminManagement = () => {
     { label: "Total Admins", value: admins.length, icon: Shield, color: "blue" },
     { label: "Active Admins", value: admins.filter(a => a.status === "approved").length, icon: CheckCircle, color: "green" },
     { label: "Pending", value: admins.filter(a => a.status === "pending").length, icon: Clock, color: "yellow" },
-    { label: "Total Turfs", value: admins.reduce((s, a) => s + a.metrics.turfsManaged, 0), icon: Building, color: "purple" },
+    { label: "Total Turfs", value: admins.reduce((s, a) => s + (a.metrics?.turfsManaged || 0), 0), icon: Building, color: "purple" },
   ];
 
   return (

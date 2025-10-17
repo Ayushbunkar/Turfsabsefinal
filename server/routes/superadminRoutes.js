@@ -63,10 +63,62 @@ router.get('/bookings/statistics', verifySuperAdmin, getBookingStatistics);
 // Turf admins endpoints for superadmin dashboard
 router.get('/turfadmins', verifySuperAdmin, getTurfAdmins);
 router.get('/turfadmins/statistics', verifySuperAdmin, getTurfAdminStats);
+// Allow superadmin to create a turf admin (server generates password and emails it)
+router.post('/turfadmins', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { createTurfAdminBySuperAdmin } = await import('../controllers/superadminController.js');
+		return createTurfAdminBySuperAdmin(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
 
 // Users endpoints for superadmin dashboard
 router.get('/users', verifySuperAdmin, getAllUsers);
 router.get('/users/statistics', verifySuperAdmin, getUserStatistics);
+// Fetch single user
+router.get('/users/:id', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { getUserById } = await import('../controllers/superadminController.js');
+		return getUserById(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+// Helper: recent users
+router.get('/users/recent', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const { getRecentUsers } = await import('../controllers/superadminController.js');
+		return getRecentUsers(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+// Delete a user (superadmin)
+router.delete('/users/:id', verifySuperAdmin, async (req, res, next) => {
+	// delegate to controller function if available
+	try {
+		// lazy import to avoid circular issues
+		const { deleteUser } = await import('../controllers/superadminController.js');
+		return deleteUser(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
+
+// Update a user's status (approve/block/suspend)
+router.patch('/users/:id', verifySuperAdmin, async (req, res, next) => {
+	try {
+		const controllers = await import('../controllers/superadminController.js');
+		// If `status` is provided in the body, treat as status change; otherwise update general user fields
+		if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'status')) {
+			return controllers.updateUserStatus(req, res, next);
+		}
+		return controllers.updateUser(req, res, next);
+	} catch (err) {
+		next(err);
+	}
+});
 
 // Analytics endpoint
 router.get('/analytics', verifySuperAdmin, getAnalytics);

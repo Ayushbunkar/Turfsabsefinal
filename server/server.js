@@ -48,6 +48,24 @@ io.on('connection', (socket) => {
 
 app.set('io', io); // Make io available in routes/controllers if needed
 
+server.on('error', (err) => {
+  console.error('Server error event:', err && err.message ? err.message : err);
+  // EADDRINUSE is common in dev when multiple instances run
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. If another instance is running, stop it or change PORT.`);
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`🚀 Server running with Socket.IO at http://localhost:${PORT}`);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err && err.stack ? err.stack : err);
+  // Allow nodemon to restart after a crash
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });

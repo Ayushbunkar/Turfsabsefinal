@@ -168,6 +168,32 @@ const superAdminService = {
       return { totalTurfAdmins: 0, activeTurfAdmins: 0, pendingTurfAdmins: 0 };
     }
   },
+
+  // Create a new turf admin by using the public auth register endpoint and setting role to Turfadmin
+  async createTurfAdmin(payload) {
+    // Prefer superadmin-created endpoint which can generate and email a password
+    try {
+      const res = await api.post('/superadmin/turfadmins', payload || {});
+      return res.data;
+    } catch (err) {
+      // Fallback to public register (requires password in payload)
+      const body = { ...(payload || {}), role: 'Turfadmin' };
+      const fallback = await api.post('/api/auth/register', body);
+      return fallback.data;
+    }
+  },
+
+  // Update a turf admin's status (if backend exposes such endpoint). This is a best-effort wrapper.
+  async updateTurfAdminStatus(adminId, status, reason = '') {
+    const res = await api.patch(`/superadmin/users/${adminId}`, { status, reason });
+    return res.data;
+  },
+
+  // Delete a turf admin (superadmin)
+  async deleteTurfAdmin(userId) {
+    const res = await api.delete(`/superadmin/users/${userId}`);
+    return res.data;
+  },
   // Fetch all users with filters/pagination
   async getAllUsers(filters = {}) {
     try {
@@ -175,6 +201,44 @@ const superAdminService = {
       return res.data;
     } catch (err) {
       return { users: [], pagination: { totalPages: 1, totalUsers: 0 } };
+    }
+  },
+
+  // Delete a user (superadmin)
+  async deleteUser(userId) {
+    const res = await api.delete(`/superadmin/users/${userId}`);
+    return res.data;
+  },
+
+  // Update a user (fields like name, email, phone, address, status)
+  async updateUser(userId, payload) {
+    const res = await api.patch(`/superadmin/users/${userId}`, payload);
+    return res.data;
+  },
+
+  // Fetch a user by id
+  async getUser(userId) {
+    const res = await api.get(`/superadmin/users/${userId}`);
+    return res.data?.user || res.data;
+  },
+
+  // Export users to CSV (downloads file in browser)
+  async exportUsersCSV(params = {}) {
+    try {
+      const res = await api.get('/superadmin/users/export', { params, responseType: 'blob' });
+      if (typeof window !== 'undefined' && res && res.data) {
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.setAttribute('download', `users_export_${Date.now()}.csv`);
+        document.body.appendChild(a);
+        a.click();
+        a.parentNode.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+      return res.data;
+    } catch (err) {
+      throw err;
     }
   },
 

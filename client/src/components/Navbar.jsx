@@ -3,11 +3,13 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
+import { useTranslation } from 'react-i18next';
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { isAuthenticated, role } = useContext(AuthContext);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setIsOpen(false); // close menu when route changes
@@ -23,20 +25,20 @@ function Navbar() {
       : "/";
 
   const navLinks = [
-    { name: "Home", path: "/" },
-    { name: "About", path: "/about" },
-    { name: "Turfs", path: "/turfs" },
-    { name: "Contact", path: "/contact" },
+    { name: t('app.nav.home'), path: "/" },
+    { name: t('app.nav.about'), path: "/about" },
+    { name: t('app.nav.turfs'), path: "/turfs" },
+    { name: t('app.nav.contact'), path: "/contact" },
   ];
 
   const authButtons = !isAuthenticated ? (
     <>
       <Link to="/login">
-        <motion.button
+          <motion.button
           whileHover={{ scale: 1.05 }}
           className="px-4 py-2 rounded-md font-medium bg-white text-green-600 border border-green-600 hover:bg-green-50 transition"
         >
-          Login
+          {t('app.auth.login')}
         </motion.button>
       </Link>
       <Link to="/signup">
@@ -44,7 +46,7 @@ function Navbar() {
           whileHover={{ scale: 1.05 }}
           className="px-4 py-2 rounded-md font-medium bg-green-600 text-white hover:bg-green-700 transition"
         >
-          Sign Up
+          {t('app.auth.signup')}
         </motion.button>
       </Link>
     </>
@@ -54,7 +56,7 @@ function Navbar() {
         whileHover={{ scale: 1.05 }}
         className="px-4 py-2 rounded-md font-medium bg-green-600 text-white hover:bg-green-700 transition"
       >
-        Dashboard
+        {t('app.auth.dashboard')}
       </motion.button>
     </Link>
   );
@@ -66,7 +68,7 @@ function Navbar() {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link to="/" className="text-2xl font-bold text-green-600">
-              TurfTime
+              {t('app.title')}
             </Link>
           </div>
 

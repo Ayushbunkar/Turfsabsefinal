@@ -185,6 +185,19 @@ export default function Booking() {
       document.body.appendChild(script);
 
       script.onload = () => {
+        // If the backend returned a synthetic dev order, skip loading Razorpay and call dev complete
+        if (order && order.__dev) {
+          (async () => {
+            try {
+              const devRes = await api.post('/api/payments/dev/complete', { bookingId: booking._id });
+              setShowSuccess({ open: true, booking: devRes.data.booking });
+            } catch (e) {
+              setError('Dev payment failed');
+            }
+          })();
+          return;
+        }
+
         const options = {
           // use Vite env vars in browser; fall back to other common keys
           key: import.meta.env.VITE_RAZORPAY_KEY ?? import.meta.env.REACT_APP_RAZORPAY_KEY ?? "",

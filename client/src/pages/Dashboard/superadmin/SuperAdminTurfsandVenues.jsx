@@ -56,6 +56,8 @@ const SuperAdminTurfs = () => {
     avgRating: 0,
     totalBookings: 0
   });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [prevStats, setPrevStats] = useState(null);
 
   useEffect(() => {
     fetchTurfs();
@@ -78,8 +80,26 @@ const SuperAdminTurfs = () => {
       const response = await superAdminService.getAllTurfs(params);
       // Debug: log response to verify fields
       console.log('Turfs API response:', response);
-      setTurfs(response.turfs || []);
-      setTotalPages(response.pagination?.totalPages || 1);
+      const rawTurfs = response?.turfs || [];
+      // Normalize backend shape to what the UI expects
+      const normalized = rawTurfs.map((t) => ({
+        id: t.id || t._id || t._id?.toString(),
+        name: t.name || '',
+        location: t.location || t.address || (t.admin && t.admin.location) || '',
+        category: t.category || t.sport || 'general',
+        pricePerHour: t.pricePerHour ?? t.price ?? 0,
+        status: t.status || (t.isApproved ? 'active' : 'pending') || 'pending',
+        rating: t.rating ?? 0,
+        totalBookings: t.totalBookings ?? t.bookingsCount ?? 0,
+        revenue: t.revenue ?? t.totalRevenue ?? 0,
+        owner: t.owner || (t.admin ? { name: t.admin.name, email: t.admin.email, phone: t.admin.phone } : {}),
+        amenities: t.amenities || [],
+        createdAt: t.createdAt,
+        lastBooking: t.lastBooking || null
+      }));
+
+      setTurfs(normalized);
+      setTotalPages(response.pagination?.totalPages || response.pagination?.total || 1);
     } catch (error) {
       console.error("Error fetching turfs:", error);
       setTurfs([]);
@@ -89,28 +109,51 @@ const SuperAdminTurfs = () => {
     }
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (opts = { retryOnFail: true }) => {
+    setStatsLoading(true);
     try {
       const response = await superAdminService.getTurfStats();
-      setStats(response || stats);
+      // Map backend stats shape to UI expected keys
+      const mapped = {
+        total: response?.totalTurfs ?? response?.total ?? 0,
+        active: response?.activeTurfs ?? response?.active ?? 0,
+        pending: response?.pendingTurfs ?? response?.pending ?? 0,
+        blocked: response?.blockedTurfs ?? response?.blocked ?? 0,
+        totalRevenue: response?.totalRevenue ?? 0,
+        avgRating: response?.avgRating ?? 0,
+        totalBookings: response?.totalBookings ?? 0
+      };
+      // keep previous snapshot for change calculation
+      setPrevStats((prev) => (prev === null ? { ...stats } : { ...stats }));
+      setStats(mapped);
     } catch (error) {
       console.error("Error fetching stats:", error);
-      // Use mock data on error
+      // On error: set safe zeroed stats and optionally retry once after a delay
       setStats({
-        total: 127,
-        active: 98,
-        pending: 15,
-        blocked: 14,
-        totalRevenue: 12500000,
-        avgRating: 4.3,
-        totalBookings: 15600
+        total: 0,
+        active: 0,
+        pending: 0,
+        blocked: 0,
+        totalRevenue: 0,
+        avgRating: 0,
+        totalBookings: 0
       });
+
+      if (opts.retryOnFail) {
+        // retry once after 5 seconds to attempt getting real stats
+        setTimeout(() => fetchStats({ retryOnFail: false }), 5000);
+      }
+    }
+    finally {
+      setStatsLoading(false);
     }
   };
 
   const handleStatusUpdate = async (turfId, status, reason = '') => {
     try {
-      await superAdminService.updateTurfStatus(turfId, status, reason);
+      // Service expects action names: 'approve'|'block'
+      const action = status === 'active' ? 'approve' : status === 'blocked' ? 'block' : status;
+      await superAdminService.updateTurfStatus(turfId, action, reason);
       toast.success(`Turf status updated to ${status}`);
       fetchTurfs();
       fetchStats();
@@ -151,43 +194,70 @@ const SuperAdminTurfs = () => {
     );
   };
 
-  const statCards = [
-    {
-      title: "Total Turfs",
-      value: stats.total,
-      change: "+15%",
-      changeType: "increase",
-      icon: Building,
-      color: "blue",
-      description: "Across all locations"
-    },
-    {
-      title: "Active Turfs",
-      value: stats.active,
-      change: "+8%",
-      changeType: "increase", 
-      icon: CheckCircle,
-      color: "green",
-      description: "Currently operational"
-    },
-    {
-      title: "Pending Approvals",
-      value: stats.pending,
-      change: "-5",
-      changeType: "decrease",
-      icon: Clock,
-      color: "yellow",
-      description: "Awaiting approval"
-    },
-    {
-      title: "Total Revenue",
-      value: `₹${(stats.totalRevenue / 100000).toFixed(1)}L`,
-      change: "+22%",
-      changeType: "increase",
-      icon: DollarSign,
-      color: "purple",
-      description: "Monthly earnings"
+  // compute dynamic change and color based on previous snapshot
+  const computeChange = (current, previous) => {
+    if (previous == null) return { change: '—', changeType: 'neutral' };
+    const diff = current - previous;
+    if (previous === 0) {
+      if (diff === 0) return { change: '0%', changeType: 'neutral' };
+      return { change: (diff > 0 ? '+100%' : '-100%'), changeType: diff > 0 ? 'increase' : 'decrease' };
     }
+    const percent = Math.round((diff / Math.abs(previous)) * 100);
+    if (diff > 0) return { change: `+${percent}%`, changeType: 'increase' };
+    if (diff < 0) return { change: `${percent}%`, changeType: 'decrease' };
+    return { change: '0%', changeType: 'neutral' };
+  };
+
+  const statCards = [
+    (() => {
+      const { change, changeType } = computeChange(stats.total, prevStats?.total);
+      return {
+        title: 'Total Turfs',
+        value: stats.total,
+        change,
+        changeType,
+        icon: Building,
+        color: 'blue',
+        description: 'Across all locations'
+      };
+    })(),
+    (() => {
+      const { change, changeType } = computeChange(stats.active, prevStats?.active);
+      return {
+        title: 'Active Turfs',
+        value: stats.active,
+        change,
+        changeType,
+        icon: CheckCircle,
+        color: 'green',
+        description: 'Currently operational'
+      };
+    })(),
+    (() => {
+      const { change, changeType } = computeChange(stats.pending, prevStats?.pending);
+      return {
+        title: 'Pending Approvals',
+        value: stats.pending,
+        change,
+        changeType,
+        icon: Clock,
+        color: 'yellow',
+        description: 'Awaiting approval'
+      };
+    })(),
+    (() => {
+      const { change, changeType } = computeChange(stats.totalRevenue, prevStats?.totalRevenue);
+      return {
+        title: 'Total Revenue',
+        value: `₹${(stats.totalRevenue / 100000).toFixed(1)}L`,
+        numericValue: stats.totalRevenue,
+        change,
+        changeType,
+        icon: DollarSign,
+        color: 'purple',
+        description: 'Monthly earnings'
+      };
+    })()
   ];
 
   const categories = [
@@ -214,7 +284,7 @@ const SuperAdminTurfs = () => {
   }
 
   return (
-    <div className="flex mt-20  pt-20  min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div 
@@ -242,7 +312,10 @@ const SuperAdminTurfs = () => {
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <button
-                onClick={fetchTurfs}
+                onClick={() => {
+                  fetchTurfs();
+                  fetchStats();
+                }}
                 className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -283,14 +356,26 @@ const SuperAdminTurfs = () => {
                         </div>
                       );
                     })()}
-                    <span className={`text-sm font-medium ${
-                      card.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {card.change}
-                    </span>
+                    {statsLoading ? (
+                      <div className="h-4 w-16 bg-gray-100 rounded animate-pulse" />
+                    ) : (
+                      <span className={`text-sm font-medium ${
+                        card.changeType === 'increase'
+                          ? 'text-green-600'
+                          : card.changeType === 'decrease'
+                          ? 'text-red-600'
+                          : 'text-gray-500'
+                      }`}>
+                        {card.change}
+                      </span>
+                    )}
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{card.value}</h3>
+                    {statsLoading ? (
+                      <div className="h-8 w-24 bg-gray-100 rounded animate-pulse mb-2" />
+                    ) : (
+                      <h3 className="text-2xl font-bold text-gray-900 mb-1">{card.value}</h3>
+                    )}
                     <p className="text-gray-600 text-sm font-medium">{card.title}</p>
                     <p className="text-gray-500 text-xs mt-1">{card.description}</p>
                   </div>

@@ -31,7 +31,7 @@ export default function Login() {
         } else if (data.user.role === "superadmin") {
           navigate("/dashboard/superadmin", { replace: true });
         } else {
-          navigate("/", { replace: true });
+          navigate("/dashboard/user", { replace: true });
         }
       }, 1000);
     } catch (err) {

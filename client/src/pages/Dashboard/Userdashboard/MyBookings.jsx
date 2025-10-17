@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, MapPin, Filter, Search, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext.jsx';
 import Sidebar from '../../../components/Sidebar/UserSidebar';
 import api from '../../../config/Api.jsx';
 import toast from 'react-hot-toast';
-import axios from 'axios';
 
 // ✅ Local Card component (no external import)
 const Card = ({ children, className = '' }) => (
@@ -19,12 +18,15 @@ const MyBookings = () => {
   const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9);
 
   // ✅ Fetch bookings from updated backend API
   useEffect(() => {
@@ -34,16 +36,21 @@ const MyBookings = () => {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      }
-
-  // ✅ Updated endpoint
-  const response = await api.get('/api/bookings/my-bookings');
-      setBookings(response.data || []);
+      // api has an interceptor that adds the Authorization header from localStorage
+      const response = await api.get('/api/bookings/my-bookings');
+      setBookings(Array.isArray(response.data) ? response.data : []);
+      setFetchError(null);
     } catch (error) {
       console.error('Error fetching bookings:', error);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        // token expired or invalid - clear and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      setFetchError(error?.response?.data?.message || 'Failed to load bookings');
       toast.error('Failed to load bookings');
       setBookings([]);
     } finally {
@@ -64,24 +71,32 @@ const MyBookings = () => {
   const handleCancelBooking = async () => {
     if (!selectedBooking) return;
     setCancelLoading(true);
+    // Optimistic update: mark selected booking as cancelled locally immediately
+    const originalBookings = bookings;
+    setBookings((prev) => prev.map((b) => (b._id === selectedBooking._id ? { ...b, status: 'cancelled' } : b)));
 
     try {
-      const token = localStorage.getItem('token');
-      await api.patch(`/api/bookings/${selectedBooking._id}/cancel`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      // Server expects PUT /api/bookings/:id/status with { status }
+      const { data } = await api.put(`/api/bookings/${selectedBooking._id}/status`, { status: 'cancelled' });
 
-      setBookings((prev) =>
-        prev.map((booking) =>
-          booking._id === selectedBooking._id
-            ? { ...booking, status: 'cancelled' }
-            : booking
-        )
-      );
+      const updated = data?.booking;
+      if (updated) setBookings((prev) => prev.map((b) => (b._id === updated._id ? updated : b)));
 
       toast.success('Booking cancelled successfully');
       setShowCancelModal(false);
       setSelectedBooking(null);
     } catch (error) {
       console.error('Error cancelling booking:', error);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        // auth issue -> clear and redirect
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      // rollback optimistic update
+      setBookings(originalBookings);
       toast.error(error.response?.data?.message || 'Failed to cancel booking');
     } finally {
       setCancelLoading(false);
@@ -158,13 +173,33 @@ const MyBookings = () => {
             </Card>
 
             {/* Booking Cards */}
-            {loading ? (
+            {fetchError ? (
+              <Card className="p-8 text-center">
+                <p className="text-red-600 mb-4">{fetchError}</p>
+                <div className="flex justify-center gap-3">
+                  <button onClick={fetchBookings} className="px-4 py-2 bg-green-600 text-white rounded">Retry</button>
+                </div>
+              </Card>
+            ) : loading ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
               </div>
             ) : filteredBookings.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredBookings.map((booking) => (
+              <>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm">Show:</label>
+                    <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="px-2 py-1 border rounded">
+                      <option value={6}>6</option>
+                      <option value={9}>9</option>
+                      <option value={12}>12</option>
+                    </select>
+                  </div>
+                  <div className="text-sm text-gray-600">Page {page}</div>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredBookings.slice((page - 1) * pageSize, page * pageSize).map((booking) => (
                   <motion.div
                     key={booking._id}
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -227,6 +262,24 @@ const MyBookings = () => {
                   </motion.div>
                 ))}
               </div>
+                {/* Pagination controls */}
+                <div className="mt-6 flex items-center justify-center gap-3">
+                  <button
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="px-3 py-1 bg-white border rounded disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    disabled={page * pageSize >= filteredBookings.length}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="px-3 py-1 bg-white border rounded disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
             ) : (
               <Card className="p-12 bg-white dark:bg-gray-800 text-center">
                 <div className="text-gray-400 mb-4">
