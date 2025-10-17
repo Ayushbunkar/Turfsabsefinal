@@ -16,6 +16,7 @@ import Signup from "./pages/Signup";
 import Turfs from "./pages/Turfs";
 import NotFound from "./pages/NotFound";
 import Booking from "./pages/Booking";
+import BookingSummary from "./pages/BookingSummary";
 import { SocketProvider } from "./context/SocketContext";
 import Unauthorized from "./pages/unauthorized";
 
@@ -127,6 +128,7 @@ const App = () => {
                 <Route path="/unauthorized" element={<Unauthorized />} />
 
                 {/* === USER BOOKING === */}
+                <Route path="/booking/summary/:id" element={<BookingSummary />} />
                 <Route
                   path="/booking/:id"
                   element={

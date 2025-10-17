@@ -29,7 +29,14 @@ const sportLabels = {
   multiple: 'Multiple Sports',
 };
 
+import { useNavigate } from 'react-router-dom';
+
+import { useState } from 'react';
+
 export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
+  const navigate = useNavigate();
+  const [btnDisabled, setBtnDisabled] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const src = turf.image || (Array.isArray(turf.images) && turf.images[0]) || null;
   const getImage = () => {
     if (!src || src === '/uploads/undefined' || src === 'undefined' || src === undefined) return null;
@@ -82,8 +89,7 @@ export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
         </div>
       </div>
 
-      {/* DEBUG: show computed image src (temporary) */}
-      <div className="px-3 py-2 text-xs text-gray-500 break-words">Image: <span className="font-mono text-[10px]">{getImage() || 'none'}</span></div>
+  {/* image source intentionally not exposed to UI to avoid leaking local paths */}
 
       <div className="p-5 space-y-3">
         <div className="space-y-1">
@@ -122,7 +128,43 @@ export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
             <div className="text-green-600 font-bold">{formattedPrice}</div>
             <div className="text-xs text-gray-500">/ hour</div>
           </div>
-          <button onClick={onBook} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">{t('booking.book') || 'Book'}</button>
+          <button
+            onClick={(e) => {
+              if (btnDisabled) return;
+              setBtnDisabled(true);
+              // short debounce to avoid double navigation/submits
+              setTimeout(() => setBtnDisabled(false), 600);
+              // On touch devices or small screens navigate to the public summary
+              const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+              const smallScreen = typeof window !== 'undefined' && window.innerWidth < 768;
+              if (isTouch || smallScreen) {
+                navigate(`/booking/summary/${turf._id}`);
+                return;
+              }
+              // otherwise open lightweight modal summary on desktop
+              setShowModal(true);
+            }}
+            disabled={btnDisabled}
+            className={`px-3 py-2 ${btnDisabled ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} text-white rounded-md text-sm`}
+          >{t('booking.book') || 'Book'}</button>
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/50" onClick={() => setShowModal(false)} />
+              <div className="relative z-10 w-full max-w-lg bg-white rounded-xl p-6 shadow-lg">
+                <h3 className="text-lg font-bold mb-2">{turf.name}</h3>
+                <p className="text-sm text-gray-600 mb-3">{turf.location}</p>
+                <div className="mb-3">
+                  <div className="text-sm text-gray-500">Price</div>
+                  <div className="text-2xl font-bold text-green-600">₹{turf.pricePerHour}</div>
+                </div>
+                <p className="text-sm text-gray-700 mb-4">{turf.description}</p>
+                <div className="flex justify-end gap-3">
+                  <button onClick={() => setShowModal(false)} className="px-3 py-2 rounded border">Close</button>
+                  <button onClick={() => { setShowModal(false); const token = localStorage.getItem('token'); if (token) navigate(`/booking/${turf._id}`); else navigate(`/login?redirect=/booking/${turf._id}`); }} className="px-4 py-2 bg-green-600 text-white rounded">Continue</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
