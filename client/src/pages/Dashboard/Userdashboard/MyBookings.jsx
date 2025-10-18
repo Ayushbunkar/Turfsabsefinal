@@ -38,7 +38,21 @@ const MyBookings = () => {
     try {
       // api has an interceptor that adds the Authorization header from localStorage
       const response = await api.get('/api/bookings/my-bookings');
-      setBookings(Array.isArray(response.data) ? response.data : []);
+      const raw = Array.isArray(response.data) ? response.data : [];
+      // normalize timeSlot for each booking so UI can render consistently
+      const normalized = raw.map((b) => {
+        // already present
+        if (b.timeSlot) return b;
+        // older API shape: single `slot` field
+        if (b.slot) return { ...b, timeSlot: `${b.slot.startTime} - ${b.slot.endTime}` };
+        // new shape: `slots` array (possibly multiple hours) -> join them
+        if (Array.isArray(b.slots) && b.slots.length > 0) {
+          const slotText = b.slots.map(s => `${s.startTime} - ${s.endTime}`).join(', ');
+          return { ...b, timeSlot: slotText };
+        }
+        return { ...b, timeSlot: '' };
+      });
+      setBookings(normalized);
       setFetchError(null);
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -237,7 +251,7 @@ const MyBookings = () => {
                         </div>
                       </div>
 
-                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between items-center">
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between items-center">
                         <div className="font-medium text-gray-900 dark:text-white">
                           ₹{booking.amount || booking.price}
                         </div>
@@ -250,6 +264,12 @@ const MyBookings = () => {
                               Cancel
                             </button>
                           )}
+                          <Link
+                            to={`/booking/success?bookingId=${booking._id}`}
+                            className="px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition"
+                          >
+                            View Receipt
+                          </Link>
                           <Link
                             to={`/turfs/${booking.turf?._id || booking.turfId}`}
                             className="px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition"

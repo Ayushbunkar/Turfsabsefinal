@@ -160,7 +160,7 @@ export default function TurfCard({ turf, onBook, small = false, index = 0 }) {
                 <p className="text-sm text-gray-700 mb-4">{turf.description}</p>
                 <div className="flex justify-end gap-3">
                   <button onClick={() => setShowModal(false)} className="px-3 py-2 rounded border">Close</button>
-                  <button onClick={() => { setShowModal(false); const token = localStorage.getItem('token'); if (token) navigate(`/booking/${turf._id}`); else navigate(`/login?redirect=/booking/${turf._id}`); }} className="px-4 py-2 bg-green-600 text-white rounded">Continue</button>
+                  <button onClick={() => { setShowModal(false); const token = localStorage.getItem('token'); if (token) navigate(`/booking/summary/${turf._id}`); else navigate(`/login?redirect=/booking/summary/${turf._id}`); }} className="px-4 py-2 bg-green-600 text-white rounded">Continue</button>
                 </div>
               </div>
             </div>

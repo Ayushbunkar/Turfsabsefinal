@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../config/Api";
+import { fetchBookingsForTurf, createBooking as svcCreateBooking, createBatchBooking } from '../services/bookingService';
 import { motion } from "framer-motion";
 import { Calendar, ChevronLeft, ChevronRight, X, CheckCircle, Lock } from 'lucide-react';
 
@@ -45,6 +46,11 @@ export default function Booking() {
       }
     };
     fetchTurf();
+    return () => { mounted = false; };
+  }, [id]);
+
+  // Keyboard handlers and navigation (separate effect so it doesn't trigger refetch)
+  useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'ArrowLeft') {
         // navigate left in dates (don't go into past dates)
@@ -98,8 +104,8 @@ export default function Booking() {
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => { mounted = false; window.removeEventListener('keydown', onKey); };
-  }, [id, date, slot, monthStart, turf]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [date, slot, monthStart, turf]);
 
   // fetch bookings for selected date to mark booked slots
   useEffect(() => {
@@ -107,17 +113,15 @@ export default function Booking() {
     let mounted = true;
     const fetch = async () => {
       try {
-        const res = await api.get(`/api/bookings/turf/${turf._id}?date=${date}`);
+        const booked = await fetchBookingsForTurf(turf._id, date) || [];
         if (!mounted) return;
-        // mark slots that are booked
-        const booked = res.data || [];
         // update turf copy with booked flags
         setTurf((prev) => {
           if (!prev) return prev;
           const copy = { ...prev };
           copy.availableSlots = copy.availableSlots.map((s) => ({
             ...s,
-            isBooked: booked.some(b => b.slot.startTime === s.startTime && b.slot.endTime === s.endTime),
+            isBooked: booked.some(b => (b.slot && b.slot.startTime === s.startTime && b.slot.endTime === s.endTime) || (b.slots && b.slots.some(ss => ss.startTime === s.startTime && ss.endTime === s.endTime))),
           }));
           return copy;
         });
@@ -174,64 +178,13 @@ export default function Booking() {
         setPendingExpires(new Date(expiresAt));
       }
 
-      // 2) Create Razorpay order for this booking
-      const orderRes = await api.post(`/api/payments/create-order`, { bookingId: booking._id });
-      const order = orderRes.data;
-
-      // 3) Load Razorpay script and open checkout
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      document.body.appendChild(script);
-
-      script.onload = () => {
-        // If the backend returned a synthetic dev order, skip loading Razorpay and call dev complete
-        if (order && order.__dev) {
-          (async () => {
-            try {
-              const devRes = await api.post('/api/payments/dev/complete', { bookingId: booking._id });
-              setShowSuccess({ open: true, booking: devRes.data.booking });
-            } catch (e) {
-              setError('Dev payment failed');
-            }
-          })();
-          return;
-        }
-
-        const options = {
-          // use Vite env vars in browser; fall back to other common keys
-          key: import.meta.env.VITE_RAZORPAY_KEY ?? import.meta.env.REACT_APP_RAZORPAY_KEY ?? "",
-          amount: order.amount,
-          currency: order.currency,
-          name: turf.name,
-          description: `Booking for ${turf.name}`,
-          order_id: order.id,
-          handler: async function (response) {
-            // verify on server
-            const verifyRes = await api.post(`/api/payments/verify`, {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              bookingId: booking._id,
-            });
-            if (verifyRes.status === 200) {
-              // instead of redirect, show success modal
-              setShowSuccess({ open: true, booking: verifyRes.data.booking });
-            } else {
-              setError("Payment verification failed");
-            }
-          },
-          prefill: {
-            name: user?.name || '',
-            email: user?.email || '',
-          },
-          theme: { color: "#16a34a" },
-        };
-
-        // @ts-ignore
-        const rzp = new window.Razorpay(options);
-        rzp.open();
-      };
+      // Instead of opening Razorpay inline, navigate to a dedicated Checkout page
+      try {
+        navigate(`/checkout?bookingId=${booking._id}`);
+        return;
+      } catch (navErr) {
+        console.error('Failed to navigate to checkout', navErr);
+      }
     } catch (err) {
       console.error(err);
       const resp = err?.response?.data;
@@ -380,7 +333,7 @@ export default function Booking() {
             <div className="mt-4">
               <div className="text-sm">Turf: <span className="font-medium">{showSuccess.booking?.turf?.name}</span></div>
               <div className="text-sm">Date: <span className="font-medium">{showSuccess.booking?.date}</span></div>
-              <div className="text-sm">Slot: <span className="font-medium">{showSuccess.booking?.slot?.startTime} - {showSuccess.booking?.slot?.endTime}</span></div>
+              <div className="text-sm">Slot: <span className="font-medium">{(showSuccess.booking?.slots && showSuccess.booking.slots[0]) ? `${showSuccess.booking.slots[0].startTime} - ${showSuccess.booking.slots[0].endTime}` : (showSuccess.booking?.slot ? `${showSuccess.booking.slot.startTime} - ${showSuccess.booking.slot.endTime}` : '')}</span></div>
             </div>
 
             <div className="mt-6 flex justify-end">

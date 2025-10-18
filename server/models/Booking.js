@@ -4,7 +4,8 @@ const bookingSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     turf: { type: mongoose.Schema.Types.ObjectId, ref: "Turf", required: true },
-    slot: { startTime: String, endTime: String },
+  // support single or multi-hour bookings via an array of slots
+  slots: [{ startTime: String, endTime: String }],
     date: { type: String, required: true },
     price: { type: Number, required: true },
       // allow 'pending' -> 'paid' lifecycle

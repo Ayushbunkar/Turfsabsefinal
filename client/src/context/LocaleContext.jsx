@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from 'react';
 import i18n from '../i18n';
 import api from '../config/Api';
 
@@ -37,11 +37,13 @@ export function LocaleProvider({ children }) {
     const token = localStorage.getItem('token');
     if (!token) return;
     let mounted = true;
+    const fetchedRef = { didFetch: false };
     (async () => {
       try {
         const resp = await api.get('/api/user/settings');
         if (mounted && resp && resp.data) {
           setState((s) => ({ ...s, ...resp.data }));
+          fetchedRef.didFetch = true;
         }
       } catch (e) {
         // ignore; fall back to local
@@ -146,21 +148,37 @@ export function LocaleProvider({ children }) {
 
   const providerValue = useMemo(() => ({ ...value, refreshRates }), [value]);
 
-  // Persist to server when authenticated
+  // Persist to server when authenticated but skip the initial mount and debounce updates
+  const _isFirstPersist = useRef(true);
+  const _persistTimer = useRef(null);
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    // debounce-ish: write after state changes
+
+    // Skip the very first change (initialization) to avoid immediate double-calls
+    if (_isFirstPersist.current) {
+      _isFirstPersist.current = false;
+      return;
+    }
+
+    // debounce updates by 400ms to batch rapid changes
     const payload = { language: state.language, currency: state.currency };
-    let cancelled = false;
-    (async () => {
+    if (_persistTimer.current) clearTimeout(_persistTimer.current);
+    _persistTimer.current = setTimeout(async () => {
       try {
         await api.patch('/api/user/settings', payload);
       } catch (e) {
         // non-fatal
+        console.warn('Failed to persist user settings', e?.message || e);
       }
-    })();
-    return () => (cancelled = true);
+    }, 400);
+
+    return () => {
+      if (_persistTimer.current) {
+        clearTimeout(_persistTimer.current);
+        _persistTimer.current = null;
+      }
+    };
   }, [state.language, state.currency]);
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

@@ -17,6 +17,8 @@ import Turfs from "./pages/Turfs";
 import NotFound from "./pages/NotFound";
 import Booking from "./pages/Booking";
 import BookingSummary from "./pages/BookingSummary";
+import Checkout from "./pages/Checkout";
+import BookingSuccess from "./pages/BookingSuccess";
 import { SocketProvider } from "./context/SocketContext";
 import Unauthorized from "./pages/unauthorized";
 
@@ -80,6 +82,7 @@ const SuperAdminSupport = lazy(() =>
 const SuperAdminSettings = lazy(() =>
   import("./pages/Dashboard/superadmin/SuperAdminSettings.jsx")
 );
+import ValidateRazorpay from './pages/Admin/ValidateRazorpay';
 
 // === EXTRA SUPERADMIN MODULES ===
 import SuperAdminNavbar from "./pages/Dashboard/superadmin/SuperAdminNavbar";
@@ -91,6 +94,8 @@ import SystemAnalytics from "./pages/Dashboard/superadmin/SystemAnalytics";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { LocaleProvider } from "./context/LocaleContext";
+import { ToastProvider } from './components/Toast/ToastContext';
+import TurfDetail from './pages/TurfDetail';
 
 const App = () => {
   // === AUTH HELPERS ===
@@ -107,6 +112,7 @@ const App = () => {
     <AuthProvider>
       <LocaleProvider>
         <SocketProvider>
+          <ToastProvider>
           <Router>
           <Navbar />
           <div className="pt-16">
@@ -125,6 +131,7 @@ const App = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/turfs" element={<Turfs />} />
+                <Route path="/turfs/:id" element={<TurfDetail />} />
                 <Route path="/unauthorized" element={<Unauthorized />} />
 
                 {/* === USER BOOKING === */}
@@ -137,6 +144,8 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/booking/success" element={<BookingSuccess />} />
 
                 {/* === USER DASHBOARD ROUTES === */}
                 <Route
@@ -315,6 +324,15 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+                {/* Admin utility */}
+                <Route
+                  path="/admin/validate-razorpay"
+                  element={
+                    <ProtectedRoute role="superadmin">
+                      <ValidateRazorpay />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* === SUPERADMIN EXTRA ROUTES === */}
                
@@ -368,6 +386,7 @@ const App = () => {
           {/* Hide footer for dashboard paths */}
           <FooterVisibility />
           </Router>
+          </ToastProvider>
         </SocketProvider>
       </LocaleProvider>
     </AuthProvider>

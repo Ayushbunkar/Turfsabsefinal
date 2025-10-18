@@ -12,6 +12,41 @@ const bookingService = {
     }
   },
 
+  // Public: fetch confirmed/paid bookings for a specific turf and optional date (YYYY-MM-DD)
+  async fetchBookingsForTurf(turfId, date) {
+    try {
+      const q = date ? `?date=${encodeURIComponent(date)}` : '';
+  const res = await api.get(`/api/bookings/turf/${turfId}${q}`);
+  // server returns { bookings: [...] } (flattened per-slot entries)
+  if (res.data && Array.isArray(res.data.bookings)) return res.data.bookings;
+  return res.data;
+    } catch (e) {
+      // bubble up error to caller so UI can show it
+      throw e;
+    }
+  },
+
+  // Create a booking (user must be authenticated)
+  // body: { turfId, slot: { startTime, endTime }, date }
+  async createBooking(body) {
+    try {
+      const res = await api.post(`/api/bookings`, body);
+      return res.data;
+    } catch (e) {
+      throw e;
+    }
+  },
+
+  // Create multiple bookings in one request
+  async createBatchBooking(body) {
+    try {
+      const res = await api.post(`/api/bookings/batch`, body);
+      return res.data;
+    } catch (e) {
+      throw e;
+    }
+  },
+
   async updateBookingStatus(id, body) {
     try {
       // server expects PUT /api/bookings/:id/status for admin updates
@@ -41,4 +76,7 @@ const bookingService = {
 export const fetchBookings = bookingService.fetchBookings;
 export const updateBookingStatus = bookingService.updateBookingStatus;
 export const exportBookings = bookingService.exportBookings;
+export const fetchBookingsForTurf = bookingService.fetchBookingsForTurf;
+export const createBooking = bookingService.createBooking;
+export const createBatchBooking = bookingService.createBatchBooking;
 export default bookingService;

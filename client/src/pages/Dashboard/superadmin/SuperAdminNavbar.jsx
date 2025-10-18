@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Search, Menu, Moon, Sun, LogOut } from 'lucide-react';
+import { Bell, Search, Menu, Moon, Sun, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import superAdminService from '../../../services/superAdminService';
 
@@ -56,6 +56,12 @@ const SuperAdminNavbar = ({ onMobileMenuToggle }) => {
           <button className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800">
             <Sun className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
+
+          {/* Validate Razorpay Keys (admin utility) */}
+          <a href="/admin/validate-razorpay" className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 hidden sm:inline-flex items-center gap-2 text-sm bg-amber-50 text-amber-800 dark:bg-amber-900/10 dark:text-amber-300">
+            <ShieldCheck className="w-4 h-4" />
+            <span className="text-xs">Validate Keys</span>
+          </a>
 
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">{user?.name?.[0] || 'S'}</div>

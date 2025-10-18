@@ -98,13 +98,13 @@ const Turfs = () => {
           initial="hidden"
           animate="show"
         >
-          {turfs.map((turf, idx) => (
+              {turfs.map((turf, idx) => (
             <motion.div
               key={turf._id}
               variants={card}
               whileHover={{ y: -8, boxShadow: '0 20px 40px rgba(0,0,0,0.12)' }}
             >
-              <TurfCard turf={turf} onBook={() => navigate(`/booking/${turf._id}`)} index={idx} />
+              <TurfCard turf={turf} onBook={() => navigate(`/booking/summary/${turf._id}`)} index={idx} />
             </motion.div>
           ))}
         </motion.div>

@@ -19,6 +19,7 @@ const SuperAdminSidebar = ({ isMobileOpen = false }) => {
     { title: 'Analytics', icon: BarChart3, path: '/dashboard/superadmin/analytics' },
     { title: 'Revenue', icon: DollarSign, path: '/dashboard/superadmin/revenue' },
     { title: 'System Health', icon: Activity, path: '/dashboard/superadmin/system-health' },
+      { title: 'Validate Razorpay', icon: ShieldCheck, path: '/admin/validate-razorpay' },
     { title: 'Notifications', icon: Bell, path: '/dashboard/superadmin/notifications' },
     { title: 'Database', icon: Database, path: '/dashboard/superadmin/database' },
     { title: 'Emails', icon: Mail, path: '/dashboard/superadmin/emails' },
